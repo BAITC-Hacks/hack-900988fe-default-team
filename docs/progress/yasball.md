@@ -92,6 +92,13 @@
 - Изменённые файлы: `frontend/src/App.jsx`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/README.md`, `docs/progress/yasball.md`.
 - Проверки: `docker compose build`, `docker compose config`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно; в тестовом Compose-контейнере прямые `/catalog` и `/tasks/task_canteen` вернули HTTP 200.
 
+### 2026-09-23 — бренд и production-домены Problemly
+
+- Frontend переименован в Problemly: обновлены видимое имя приложения, browser title, имя npm-пакета и Docker-образа.
+- Compose по умолчанию собирает API URL `https://haa-api.defaul7.net`; Nginx задан для `haa.defaul7.net`, контейнер продолжает слушать внутренний 80 и публикуется на 5380.
+- Для подключения production API backend должен разрешать CORS origin `https://haa.defaul7.net`; backend-файлы не изменялись.
+- Проверки: `docker compose config` подтвердил production API URL и образ `problemly-frontend:local`; `docker compose build`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.

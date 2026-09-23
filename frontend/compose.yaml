@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-    image: hackalem-frontend:local
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://haa-api.defaul7.net}
+    image: problemly-frontend:local
     ports:
       - "5380:80"
     restart: unless-stopped
