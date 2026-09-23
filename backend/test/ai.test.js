@@ -38,6 +38,18 @@ test('AI-extracted field must be explicitly supported by the draft', () => {
   assert.equal(fields.expectedResult, '');
 });
 
+test('misclassified source excerpts are cleared instead of entering a wrong field', () => {
+  const draft = 'Нужно сократить среднее время ожидания. Доступны данные кассовых чеков. Ожидаемый результат — веб-прототип.';
+  const fields = sanitizeExtractedFields({
+    context: 'Нужно сократить среднее время ожидания', need: 'Доступны данные кассовых чеков',
+    data: 'Ожидаемый результат — веб-прототип', expectedResult: 'Ожидаемый результат — веб-прототип',
+  }, draft);
+  assert.equal(fields.context, '');
+  assert.equal(fields.need, '');
+  assert.equal(fields.data, '');
+  assert.equal(fields.expectedResult, 'Ожидаемый результат — веб-прототип');
+});
+
 test('Structured Output response is verified against the draft', async (t) => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENAI_API_KEY;
@@ -83,10 +95,16 @@ test('questions are nonempty and unique after repairing malformed model question
 
 for (const missingCount of [0, 1, 2]) {
   test(`a detailed draft with ${missingCount} missing fields still receives three clarifications`, async (t) => {
-    const fields = Object.fromEntries(fieldKeys.map(key => [key, draftText]));
+    const fields = {
+      title: 'Очередь в столовой', context: 'В столовой образуется очередь', need: 'Нужно сократить ожидание',
+      users: 'Сотрудники офиса', data: 'Доступны данные чеков', constraints: 'Нельзя использовать персональные данные',
+      expectedResult: 'Ожидаемый результат — прототип', successCriteria: 'Успех измеряется сокращением на 20 процентов',
+      contact: 'Контакт: менеджер Алия', interactionFormat: 'Формат: еженедельные демонстрации',
+    };
     for (const key of ['users', 'data'].slice(0, missingCount)) fields[key] = '';
+    const detailedDraft = Object.values(fields).filter(Boolean).join('. ');
     mockProvider(t, async () => ({ ok: true, json: async () => restResponse({ extractedFields: fields, questions: [] }) }));
-    const result = await analyzeDraft(draftText);
+    const result = await analyzeDraft(detailedDraft);
     assert.equal(result.fallbackUsed, false);
     assert.equal(result.questions.length, 3);
     assert.equal(new Set(result.questions.map(q => q.field)).size, 3);

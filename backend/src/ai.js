@@ -36,6 +36,17 @@ function parseAnalysis(text) {
   return parsed;
 }
 const normalize = (value) => value.toLocaleLowerCase().replace(/[\p{P}\p{S}\s]+/gu, ' ').trim();
+const fieldEvidence = {
+  context: (text) => !/(нужно|требует|необходим|данн|чек|ожидаем|результат|прототип|успех|огранич|нельзя|связь с бизнесом)/.test(text),
+  need: (text) => /(нужно|требует|необходим|цель|проблем)/.test(text) && !/(данн|чек|ожидаем|результат|прототип|связь с бизнесом)/.test(text),
+  users: (text) => /(пользовател|сотрудник|клиент|посетител|студент)/.test(text),
+  data: (text) => /(данн|csv|чек|таблиц|отч[её]т|метрик)/.test(text) && !/(ожидаем|результат|прототип)/.test(text),
+  constraints: (text) => /(огранич|нельзя|только|без |бюджет|срок)/.test(text),
+  expectedResult: (text) => /(ожидаем|результат|прототип|mvp|решени)/.test(text) && !/(данн|чек)/.test(text),
+  successCriteria: (text) => /(успех|критер|измер|процент|сократ)/.test(text),
+  contact: (text) => /(контакт|менеджер|ответствен|телефон|почт|@)/.test(text),
+  interactionFormat: (text) => /(взаимодейств|встреч|демонстрац|созвон|формат)/.test(text),
+};
 export function sourceSupported(value, draft) {
   const candidate = normalize(value);
   return candidate.length >= 3 && normalize(draft).includes(candidate);
@@ -43,7 +54,8 @@ export function sourceSupported(value, draft) {
 export function sanitizeExtractedFields(rawFields, draft) {
   return Object.fromEntries(fieldNames.map((key) => {
     const value = typeof rawFields?.[key] === 'string' ? rawFields[key].trim() : '';
-    return [key, sourceSupported(value, draft) ? value : ''];
+    const evidence = fieldEvidence[key];
+    return [key, sourceSupported(value, draft) && (!evidence || evidence(normalize(value))) ? value : ''];
   }));
 }
 export function fallbackAnalysis(draft) {
@@ -63,7 +75,7 @@ export async function analyzeDraft(draft, language = 'ru') {
     const config = llmConfig();
     if (!config) return fallbackAnalysis(draft);
     const messages = [
-      { role: 'system', content: `Extract only facts explicitly stated in the user's draft. Copy field values as exact excerpts from the draft; never paraphrase, infer, or invent facts. Return empty strings for missing facts. Write questions in ${language === 'ru' ? 'Russian' : language}. Ask at least three useful questions for missing fields. Return only JSON matching the supplied schema.` },
+      { role: 'system', content: `Extract only facts explicitly stated in the user's draft. Copy field values as exact excerpts from the draft; never paraphrase, infer, or invent facts. Map each excerpt to its matching field: context is the current situation; need is the problem or goal; data is available data/materials; expectedResult is the requested deliverable; successCriteria is how success is measured; constraints are restrictions; users are people who use the solution; contact is a named communication contact; interactionFormat is the collaboration cadence. Never put an excerpt in a different field. Return empty strings for missing facts. Write questions in ${language === 'ru' ? 'Russian' : language}. Ask at least three useful questions for missing fields. Return only JSON matching the supplied schema.` },
       { role: 'user', content: draft },
     ];
     const parsed = parseAnalysis(await requestStructuredAnalysis(config, messages, analysisSchema));
