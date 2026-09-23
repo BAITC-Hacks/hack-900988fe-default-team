@@ -31,6 +31,21 @@ docker run --rm -p 3388:3388 --name hackalem-backend -v hackalem-data:/app/data 
 
 После запуска API доступен по `http://localhost:3388/api`, Swagger — по `http://localhost:3388/api/docs`. Чтобы включить провайдера, передайте `LLM_API_KEY` через окружение команды запуска или файл окружения, который не добавляется в Git.
 
+## Smoke-проверка
+
+После запуска сервера проверьте health, Swagger UI и OpenAPI-спецификацию:
+
+```powershell
+npm run smoke
+```
+
+Для другого API укажите базовый URL с префиксом `/api`:
+
+```powershell
+$env:SMOKE_BASE_URL = "https://haa-api.defaul7.net/api"
+npm run smoke
+```
+
 ## API и сценарий
 
 Реализованы health check, анализ черновика, формирование карточки, создание/редактирование/публикация задачи, каталог с `theme`, `level`, `sort`, создание/просмотр откликов и ручное изменение статуса (`pending`, `selected`, `rejected`). Низкий рейтинг не мешает публикации; выбор команды не выполняется автоматически. Ошибки имеют контрактный вид `{ "error": { "code", "message", "details" } }`.

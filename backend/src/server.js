@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { tasks, teams, proposals, analyses, initializeStore, persist, makeId, timestamp } from './store.js';
+import { tasks, teams, proposals, analyses, initializeStore, persist, closeStore, makeId, timestamp } from './store.js';
 import { scoreTask } from './scoring.js';
 import { analyzeDraft } from './ai.js';
 import { buildOpenapi } from './openapi.js';
@@ -94,5 +94,19 @@ export function createServer() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  createServer().listen(port, () => console.log(`HackAlem API listening on ${port}`));
+  const server = createServer();
+  let stopping = false;
+  const shutdown = (signal) => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`Received ${signal}; closing HackAlem API.`);
+    server.close((serverError) => {
+      try { closeStore(); } catch (storeError) { console.error(storeError); }
+      process.exit(serverError ? 1 : 0);
+    });
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  server.listen(port, () => console.log(`HackAlem API listening on ${port}`));
 }

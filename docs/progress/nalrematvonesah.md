@@ -179,3 +179,9 @@
 - Системная инструкция дополнена строгими определениями каждого извлекаемого поля. Добавлен regression-тест неправильного распределения source-подтверждённых фрагментов.
 - Изменены: `backend/src/ai.js`, `backend/test/ai.test.js`, `backend/README.md`.
 - Проверки: `npm test` — 40/40 passed.
+
+### 2026-09-23 — эксплуатационные проверки backend
+
+- Добавлен Docker `HEALTHCHECK` для `/api/health`, корректное закрытие HTTP-сервера и SQLite по `SIGINT`/`SIGTERM`, а также `npm run smoke` для проверки health, Swagger UI и OpenAPI у уже запущенного API.
+- Изменены: `backend/Dockerfile`, `backend/src/server.js`, `backend/scripts/smoke.js`, `backend/package.json`, `backend/README.md`.
+- Проверки: `npm test` — 40/40 passed; `SMOKE_BASE_URL=http://localhost:3391/api npm run smoke` прошла на временном сервере; Docker-образ с HEALTHCHECK собран успешно. Временная SQLite-база удалена.
