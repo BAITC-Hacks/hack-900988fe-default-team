@@ -140,3 +140,114 @@ test('request log contains safe metadata without request bodies or query paramet
   assert.equal(Number.isInteger(entry.durationMs), true);
   assert.equal(JSON.stringify(entry).includes('not-logged'), false);
 });
+
+test('publication requires a nonempty confirmed field, without a minimum score', async () => {
+  for (const [fields, confirmedFields, expectedStatus, score] of [
+    [{ context: 'Есть очередь' }, [], 409, 0],
+    [{ context: '   ' }, ['context'], 409, 0],
+    [{}, ['users'], 409, 0],
+    [{ users: 'Сотрудники' }, ['users'], 200, 10],
+    [{ context: 'Есть очередь' }, ['context'], 200, 20],
+    [{ title: 'Название' }, ['title'], 200, 0],
+  ]) {
+    const created = await request('/tasks', 'POST', { fields, confirmedFields });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.score, score);
+    const published = await request(`/tasks/${created.body.id}/publish`, 'POST', {});
+    assert.equal(published.status, expectedStatus);
+    if (expectedStatus === 409) {
+      assert.equal(published.body.error.code, 'UNCONFIRMED_TASK');
+      assert.equal((await request(`/tasks/${created.body.id}`)).body.status, 'draft');
+    } else assert.equal(published.body.status, 'published');
+  }
+});
+
+test('PATCH replaces confirmations and accepts explicit reconfirmation of changed values', async () => {
+  const created = await request('/tasks', 'POST', { fields: { context: 'Старый контекст', users: 'Сотрудники' }, confirmedFields: ['context', 'users'] });
+  const path = `/tasks/${created.body.id}`;
+  assert.equal(created.body.score, 30);
+  const edited = await request(path, 'PATCH', { fields: { context: 'Новый контекст' }, confirmedFields: ['users'] });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.score, 10);
+  assert.deepEqual(edited.body.confirmedFields, ['users']);
+  const reconfirmed = await request(path, 'PATCH', { fields: { context: 'Ещё один контекст' }, confirmedFields: ['context', 'users'] });
+  assert.equal(reconfirmed.body.score, 30);
+  const cleared = await request(path, 'PATCH', { fields: {}, confirmedFields: [] });
+  assert.equal(cleared.body.score, 0);
+  assert.equal((await request(path, 'PATCH', { fields: { context: 'Без списка' } })).status, 400);
+  assert.equal((await request(path)).body.fields.context, 'Ещё один контекст');
+});
+
+test('validation rejects nonobject bodies, unknown fields and mismatched compose answers', async () => {
+  for (const payload of [null, [], 'text', 42, true]) {
+    const response = await request('/tasks', 'POST', payload);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+  }
+  const malformed = await fetch(`${baseUrl}/tasks`, { method: 'POST', body: '{', headers: { 'Content-Type': 'application/json' } });
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).error.code, 'INVALID_JSON');
+  const oversized = await request('/tasks', 'POST', { fields: { title: 'x'.repeat(1024 * 1024) } });
+  assert.equal(oversized.status, 413);
+  assert.equal(oversized.body.error.code, 'PAYLOAD_TOO_LARGE');
+  assert.equal((await request('/tasks', 'POST', { fields: { businessLink: 'legacy' }, confirmedFields: [] })).status, 400);
+  const analysis = await request('/task-drafts/analyze', 'POST', { draft: 'Нужно сократить очередь.' });
+  const question = analysis.body.questions[0];
+  const compose = payload => request('/task-drafts/compose', 'POST', { analysisId: analysis.body.analysisId, ...payload });
+  for (const payload of [
+    { answers: null }, { currentFields: [] }, { currentFields: { users: null } },
+    { answers: [{ questionId: 'unknown', field: question.field, answer: 'Ответ' }] },
+    { answers: [{ questionId: question.id, field: 'title', answer: 'Ответ' }] },
+    { answers: Array(2).fill({ questionId: question.id, field: question.field, answer: 'Ответ' }) },
+  ]) {
+    const response = await compose(payload);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+  }
+  const composed = await compose({ currentFields: { users: 'Сотрудники' }, confirmedFields: ['users'] });
+  assert.equal(composed.status, 200);
+  assert.equal(composed.body.score, 0);
+});
+
+test('new tasks support theme creation, replacement, preservation and catalog filtering', async () => {
+  const created = await request('/tasks', 'POST', { theme: 'finance', fields: { users: 'Аналитики' }, confirmedFields: ['users'] });
+  assert.equal(created.status, 201);
+  const path = `/tasks/${created.body.id}`;
+  assert.equal(created.body.theme, 'finance');
+  await request(path + '/publish', 'POST', {});
+  assert.ok((await request('/tasks?theme=finance')).body.some(task => task.id === created.body.id));
+  assert.equal((await request(path, 'PATCH', { theme: 'hr', fields: {}, confirmedFields: ['users'] })).body.theme, 'hr');
+  assert.equal((await request(path, 'PATCH', { fields: {}, confirmedFields: ['users'] })).body.theme, 'hr');
+  assert.equal((await request(path)).body.theme, 'hr');
+  assert.ok(!(await request('/tasks?theme=finance')).body.some(task => task.id === created.body.id));
+  for (const theme of ['unknown', null, 1, []]) {
+    assert.equal((await request('/tasks', 'POST', { theme, fields: {} })).status, 400);
+    assert.equal((await request(path, 'PATCH', { theme, fields: {}, confirmedFields: [] })).status, 400);
+  }
+  assert.equal((await request('/tasks?theme=unknown')).status, 400);
+  assert.equal((await request('/tasks', 'POST', { fields: {} })).body.theme, null);
+});
+
+test('teams API provides full profiles and multiple teams can be selected manually', async () => {
+  const list = await request('/teams');
+  assert.equal(list.status, 200);
+  assert.ok(list.body.length >= 5);
+  for (const team of list.body) {
+    for (const key of ['id', 'name', 'university']) assert.ok(team[key]);
+    for (const key of ['interests', 'skills', 'technologies']) assert.ok(Array.isArray(team[key]) && team[key].length && team[key].every(value => typeof value === 'string'));
+  }
+  const ids = [];
+  for (const team of list.body.slice(0, 2)) {
+    const proposal = await request('/tasks/task_1/proposals', 'POST', { teamId: team.id, solutionIdea: 'Прототип', plan: 'Анализ и демо', estimatedTime: 'Неделя', prototypeUrl: 'https://example.com/demo' });
+    assert.equal(proposal.status, 201);
+    assert.equal(proposal.body.status, 'pending');
+    ids.push(proposal.body.id);
+    assert.equal((await request(`/proposals/${proposal.body.id}/status`, 'PATCH', { status: 'selected' })).status, 200);
+  }
+  const proposals = (await request('/tasks/task_1/proposals')).body;
+  assert.ok(ids.every(id => proposals.find(proposal => proposal.id === id).status === 'selected'));
+  const spec = (await request('/openapi.json')).body;
+  assert.ok(spec.paths['/teams'].get);
+  assert.ok(spec.paths['/tasks/{taskId}/publish'].post.responses['409']);
+  assert.deepEqual(spec.paths['/tasks'].post.requestBody.content['application/json'].schema.properties.theme.enum, ['operations', 'hr', 'finance', 'education', 'sustainability']);
+});
