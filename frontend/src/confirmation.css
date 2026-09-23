@@ -19,3 +19,11 @@
 .confirmation input {
   width: auto;
 }
+
+.team-profile {
+  background: #f5f7fb;
+  border-radius: 8px;
+  color: #526078;
+  line-height: 1.55;
+  padding: 10px;
+}

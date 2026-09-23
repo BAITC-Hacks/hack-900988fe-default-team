@@ -21,23 +21,23 @@ const fieldMeta = [
 
 const catalogSeeds = [
   {
-    id: 'task_canteen', status: 'published', theme: 'AI и данные',
+    id: 'task_canteen', status: 'published', theme: 'operations',
     fields: { ...baseFields, users: 'Сотрудники офиса', data: 'История проходов и продажи по часам', expectedResult: 'Прогноз нагрузки и рекомендации по расписанию', successCriteria: 'Сократить среднее ожидание на 25%', constraints: 'Без камер и персональных данных', contact: 'innovation@example.com', interactionFormat: 'Еженедельные созвоны' },
   },
   {
-    id: 'task_energy', status: 'published', theme: 'Экология',
+    id: 'task_energy', status: 'published', theme: 'sustainability',
     fields: { title: 'Снижение энергопотребления кампуса', context: 'Корпуса потребляют больше энергии в вечерние часы.', need: 'Найти сценарии экономии без ухудшения комфорта.', users: 'Администрация кампуса', data: 'Почасовые показания счётчиков', expectedResult: 'Дашборд и набор рекомендаций', successCriteria: 'Снизить расход на 10%', constraints: 'Только обезличенные данные', contact: '', interactionFormat: '' },
   },
   {
-    id: 'task_service', status: 'published', theme: 'Сервис',
+    id: 'task_service', status: 'published', theme: 'hr',
     fields: { title: 'Навигатор обращений клиентов', context: 'Повторяющиеся обращения долго распределяются между отделами.', need: 'Ускорить первичную обработку обращений.', users: 'Операторы поддержки', data: 'Архив обезличенных обращений', expectedResult: 'Прототип классификатора тем', successCriteria: 'Точность маршрутизации 80%', constraints: '', contact: '', interactionFormat: '' },
   },
   {
-    id: 'task_logistics', status: 'published', theme: 'Логистика',
+    id: 'task_logistics', status: 'published', theme: 'finance',
     fields: { title: 'Планирование доставки для малого бизнеса', context: 'Курьеры строят маршруты вручную.', need: 'Сократить лишний пробег.', users: 'Диспетчеры и курьеры', data: '', expectedResult: 'Прототип оптимизатора маршрута', successCriteria: '', constraints: 'Работа в пределах одного города', contact: '', interactionFormat: '' },
   },
   {
-    id: 'task_education', status: 'published', theme: 'Образование',
+    id: 'task_education', status: 'published', theme: 'education',
     fields: { title: 'Понятный путь первокурсника', context: 'Новым студентам сложно найти нужные сервисы.', need: 'Собрать частые вопросы в одном интерфейсе.', users: 'Первокурсники', data: '', expectedResult: '', successCriteria: '', constraints: '', contact: '', interactionFormat: '' },
   },
 ].map((task, index) => ({
@@ -50,6 +50,13 @@ const catalogSeeds = [
 
 let tasks = [...catalogSeeds];
 let proposals = [];
+const teams = [
+  { id: 'team_1', name: 'Data Nomads', university: 'КазНУ', interests: ['AI', 'логистика'], skills: ['аналитика', 'UX'], technologies: ['Python', 'React'] },
+  { id: 'team_2', name: 'Green Byte', university: 'Satbayev University', interests: ['экология', 'IoT'], skills: ['данные', 'прототипирование'], technologies: ['Python', 'Figma'] },
+  { id: 'team_3', name: 'People First', university: 'KBTU', interests: ['HR', 'сервис'], skills: ['исследования', 'frontend'], technologies: ['TypeScript', 'React'] },
+  { id: 'team_4', name: 'FinFlow', university: 'Maqsut Narikbayev University', interests: ['финансы', 'автоматизация'], skills: ['backend', 'аналитика'], technologies: ['Node.js', 'PostgreSQL'] },
+  { id: 'team_5', name: 'Edu Makers', university: 'AITU', interests: ['образование', 'AI'], skills: ['UX', 'ML'], technologies: ['Python', 'React'] },
+];
 
 export function calculateScore(fields, confirmedFields = []) {
   const confirmed = new Set(confirmedFields);
@@ -74,9 +81,16 @@ export const mockAdapter = {
     answers.forEach(({ field, answer }) => { fields[field] = answer; });
     return wait({ fields, confirmedFields: [], ...calculateScore(fields), missingFields: fieldMeta.filter(([key]) => key === 'businessConnection' ? !fields.contact?.trim() || !fields.interactionFormat?.trim() : !fields[key]?.trim()).map(([key]) => key) });
   },
-  async createTask({ fields, confirmedFields }) {
-    const task = { id: `task_${Date.now()}`, status: 'draft', theme: 'AI и данные', fields, confirmedFields, ...calculateScore(fields, confirmedFields), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  async createTask({ fields, confirmedFields, theme = null }) {
+    const task = { id: `task_${Date.now()}`, status: 'draft', theme, fields, confirmedFields, ...calculateScore(fields, confirmedFields), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     tasks = [task, ...tasks];
+    return wait(task);
+  },
+  async updateTask(taskId, { fields, confirmedFields, theme }) {
+    const existing = tasks.find((item) => item.id === taskId);
+    if (!existing) throw new Error('TASK_NOT_FOUND');
+    const task = { ...existing, fields: { ...existing.fields, ...fields }, confirmedFields, theme: theme ?? existing.theme, ...calculateScore({ ...existing.fields, ...fields }, confirmedFields), updatedAt: new Date().toISOString() };
+    tasks = tasks.map((item) => item.id === taskId ? task : item);
     return wait(task);
   },
   async publish(task) {
@@ -97,6 +111,7 @@ export const mockAdapter = {
     if (!task) throw new Error('TASK_NOT_FOUND');
     return wait({ ...task, fields: { ...task.fields } });
   },
+  async listTeams() { return wait(teams.map((team) => ({ ...team, interests: [...team.interests], skills: [...team.skills], technologies: [...team.technologies] }))); },
   async createProposal({ taskId, ...payload }) {
     const proposal = { id: `proposal_${Date.now()}`, taskId, status: 'pending', ...payload };
     proposals = [proposal, ...proposals];

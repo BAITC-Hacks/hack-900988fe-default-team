@@ -29,11 +29,11 @@ export function createHttpAdapter(baseUrl) {
     compose({ analysisId, draft, answers, currentFields }) {
       return request('/task-drafts/compose', { method: 'POST', body: JSON.stringify({ analysisId, draft, answers, currentFields }) });
     },
-    createTask({ fields, confirmedFields }) {
-      return request('/tasks', { method: 'POST', body: JSON.stringify({ fields, confirmedFields }) });
+    createTask({ fields, confirmedFields, theme }) {
+      return request('/tasks', { method: 'POST', body: JSON.stringify({ fields, confirmedFields, theme }) });
     },
-    updateTask(taskId, { fields, confirmedFields }) {
-      return request(`/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ fields, confirmedFields }) });
+    updateTask(taskId, { fields, confirmedFields, theme }) {
+      return request(`/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ fields, confirmedFields, theme }) });
     },
     publish(task) {
       if (!task?.id) throw new Error('Сначала сохраните карточку как черновик.');
@@ -47,6 +47,9 @@ export function createHttpAdapter(baseUrl) {
     },
     getTask(taskId) {
       return request(`/tasks/${encodeURIComponent(taskId)}`);
+    },
+    listTeams() {
+      return request('/teams');
     },
     createProposal({ taskId, ...payload }) {
       return request(`/tasks/${encodeURIComponent(taskId)}/proposals`, { method: 'POST', body: JSON.stringify(payload) });

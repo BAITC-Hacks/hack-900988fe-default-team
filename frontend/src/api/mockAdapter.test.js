@@ -22,9 +22,15 @@ describe('mock adapter', () => {
   });
 
   it('filters the catalog by theme and returns a task detail', async () => {
-    const tasks = await mockAdapter.listTasks({ theme: 'Экология', level: 'priority' });
+    const tasks = await mockAdapter.listTasks({ theme: 'sustainability', level: 'priority' });
     expect(tasks).toHaveLength(1);
     expect(tasks[0].fields.title).toBe('Снижение энергопотребления кампуса');
     await expect(mockAdapter.getTask(tasks[0].id)).resolves.toMatchObject({ id: tasks[0].id, status: 'published' });
+  });
+
+  it('lists complete team profiles for proposal selection', async () => {
+    const teams = await mockAdapter.listTeams();
+    expect(teams).toHaveLength(5);
+    expect(teams[0]).toMatchObject({ id: 'team_1', name: expect.any(String), interests: expect.any(Array), skills: expect.any(Array), technologies: expect.any(Array) });
   });
 });
