@@ -4,8 +4,8 @@ import { calculateScore } from './api/mockAdapter';
 
 const initialDraft = 'Хотим сократить очереди в корпоративной столовой с помощью AI.';
 const labels = { draft: 'Черновик', working: 'Рабочая', ready: 'Готовая', priority: 'Приоритетная' };
-const editable = ['title', 'context', 'need', 'users', 'data', 'expectedResult', 'successCriteria', 'constraints', 'businessLink', 'contact', 'interactionFormat'];
-const fieldLabels = { title: 'Название', context: 'Контекст', need: 'Потребность бизнеса', users: 'Пользователи', data: 'Данные и материалы', expectedResult: 'Ожидаемый результат', successCriteria: 'Критерии успеха', constraints: 'Ограничения', businessLink: 'Связь с бизнесом', contact: 'Контакт', interactionFormat: 'Формат взаимодействия' };
+const editable = ['title', 'context', 'need', 'users', 'data', 'expectedResult', 'successCriteria', 'constraints', 'contact', 'interactionFormat'];
+const fieldLabels = { title: 'Название', context: 'Контекст', need: 'Потребность бизнеса', users: 'Пользователи', data: 'Данные и материалы', expectedResult: 'Ожидаемый результат', successCriteria: 'Критерии успеха', constraints: 'Ограничения', contact: 'Контакт', interactionFormat: 'Формат консультаций и обратной связи' };
 const themes = ['AI и данные', 'Экология', 'Сервис', 'Логистика', 'Образование'];
 
 function readRoute() {

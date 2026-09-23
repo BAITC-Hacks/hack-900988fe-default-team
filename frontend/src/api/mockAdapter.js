@@ -10,13 +10,13 @@ const baseFields = {
   title: 'Сокращение очередей в корпоративной столовой',
   context: 'В корпоративной столовой в часы пик возникают очереди.',
   need: 'Сократить время ожидания сотрудников.',
-  users: '', data: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', businessLink: '',
+  users: '', data: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '',
 };
 
 const fieldMeta = [
   ['context', 'Контекст и потребность', 20], ['data', 'Данные и материалы', 20],
   ['expectedResult', 'Ожидаемый результат', 15], ['successCriteria', 'Критерии успеха', 15],
-  ['constraints', 'Ограничения', 10], ['users', 'Пользователи', 10], ['businessLink', 'Связь с бизнесом', 10],
+  ['constraints', 'Ограничения', 10], ['users', 'Пользователи', 10], ['businessConnection', 'Связь с бизнесом', 10],
 ];
 
 const catalogSeeds = [
@@ -54,8 +54,12 @@ let proposals = [];
 export function calculateScore(fields, confirmedFields = []) {
   const confirmed = new Set(confirmedFields);
   const scoreBreakdown = fieldMeta.map(([key, label, max]) => {
-    const earned = confirmed.has(key) && fields[key]?.trim() ? max : 0;
-    return { key, label, max, earned, confirmed: confirmed.has(key), recommendation: earned ? null : `Добавьте и подтвердите поле «${label}»` };
+    const businessConnection = key === 'businessConnection';
+    const earned = businessConnection
+      ? confirmed.has('contact') && confirmed.has('interactionFormat') && fields.contact?.trim() && fields.interactionFormat?.trim() ? max : 0
+      : confirmed.has(key) && fields[key]?.trim() ? max : 0;
+    const isConfirmed = businessConnection ? confirmed.has('contact') && confirmed.has('interactionFormat') : confirmed.has(key);
+    return { key, label, max, earned, confirmed: isConfirmed, recommendation: earned ? null : businessConnection ? 'Укажите и подтвердите контакт и формат консультаций/обратной связи' : `Добавьте и подтвердите поле «${label}»` };
   });
   const score = scoreBreakdown.reduce((sum, item) => sum + item.earned, 0);
   return { score, level: score < 40 ? 'draft' : score < 70 ? 'working' : score < 90 ? 'ready' : 'priority', scoreBreakdown };
@@ -68,7 +72,7 @@ export const mockAdapter = {
   async compose({ draft, answers, currentFields }) {
     const fields = { ...baseFields, ...currentFields, context: currentFields.context || draft };
     answers.forEach(({ field, answer }) => { fields[field] = answer; });
-    return wait({ fields, confirmedFields: [], ...calculateScore(fields), missingFields: fieldMeta.filter(([key]) => !fields[key]?.trim()).map(([key]) => key) });
+    return wait({ fields, confirmedFields: [], ...calculateScore(fields), missingFields: fieldMeta.filter(([key]) => key === 'businessConnection' ? !fields.contact?.trim() || !fields.interactionFormat?.trim() : !fields[key]?.trim()).map(([key]) => key) });
   },
   async createTask({ fields, confirmedFields }) {
     const task = { id: `task_${Date.now()}`, status: 'draft', theme: 'AI и данные', fields, confirmedFields, ...calculateScore(fields, confirmedFields), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
