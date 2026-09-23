@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer as createHttpServer } from 'node:http';
+import { DatabaseSync } from 'node:sqlite';
 
 const directory = mkdtempSync(join(tmpdir(), 'hackalem-api-'));
 process.env.DATABASE_URL = `file:${join(directory, 'api.db')}`;
@@ -75,7 +76,7 @@ test('HTTP scenario allows low-score publication and manual team selection', asy
 
   const task = await request('/tasks', 'POST', {
     fields: { title: 'Очередь в столовой', context: 'Есть очередь', need: 'Улучшить обслуживание' },
-    confirmedFields: ['context'],
+    confirmedFields: ['context', 'need'],
   });
   assert.equal(task.status, 201);
   assert.equal(task.body.score, 20);
@@ -147,7 +148,8 @@ test('publication requires a nonempty confirmed field, without a minimum score',
     [{ context: '   ' }, ['context'], 409, 0],
     [{}, ['users'], 409, 0],
     [{ users: 'Сотрудники' }, ['users'], 200, 10],
-    [{ context: 'Есть очередь' }, ['context'], 200, 20],
+    [{ context: 'Есть очередь' }, ['context'], 200, 0],
+    [{ context: 'Есть очередь', need: 'Сократить ожидание' }, ['context', 'need'], 200, 20],
     [{ title: 'Название' }, ['title'], 200, 0],
   ]) {
     const created = await request('/tasks', 'POST', { fields, confirmedFields });
@@ -163,15 +165,18 @@ test('publication requires a nonempty confirmed field, without a minimum score',
 });
 
 test('PATCH replaces confirmations and accepts explicit reconfirmation of changed values', async () => {
-  const created = await request('/tasks', 'POST', { fields: { context: 'Старый контекст', users: 'Сотрудники' }, confirmedFields: ['context', 'users'] });
+  const created = await request('/tasks', 'POST', { fields: { context: 'Старый контекст', need: 'Сократить ожидание', users: 'Сотрудники' }, confirmedFields: ['context', 'need', 'users'] });
   const path = `/tasks/${created.body.id}`;
   assert.equal(created.body.score, 30);
   const edited = await request(path, 'PATCH', { fields: { context: 'Новый контекст' }, confirmedFields: ['users'] });
   assert.equal(edited.status, 200);
   assert.equal(edited.body.score, 10);
   assert.deepEqual(edited.body.confirmedFields, ['users']);
-  const reconfirmed = await request(path, 'PATCH', { fields: { context: 'Ещё один контекст' }, confirmedFields: ['context', 'users'] });
+  const reconfirmed = await request(path, 'PATCH', { fields: { context: 'Ещё один контекст' }, confirmedFields: ['context', 'need', 'users'] });
   assert.equal(reconfirmed.body.score, 30);
+  const changedNeed = await request(path, 'PATCH', { fields: { need: 'Новая потребность' }, confirmedFields: ['context', 'users'] });
+  assert.equal(changedNeed.body.score, 10);
+  assert.match(changedNeed.body.scoreBreakdown[0].recommendation, /context и need/);
   const cleared = await request(path, 'PATCH', { fields: {}, confirmedFields: [] });
   assert.equal(cleared.body.score, 0);
   assert.equal((await request(path, 'PATCH', { fields: { context: 'Без списка' } })).status, 400);
@@ -250,4 +255,23 @@ test('teams API provides full profiles and multiple teams can be selected manual
   assert.ok(spec.paths['/teams'].get);
   assert.ok(spec.paths['/tasks/{taskId}/publish'].post.responses['409']);
   assert.deepEqual(spec.paths['/tasks'].post.requestBody.content['application/json'].schema.properties.theme.enum, ['operations', 'hr', 'finance', 'education', 'sustainability']);
+});
+
+test('a failed SQLite write restores the previous in-memory state and hides internal errors', async t => {
+  const created = await request('/tasks', 'POST', { fields: { users: 'Сотрудники' }, confirmedFields: ['users'] });
+  const path = `/tasks/${created.body.id}`;
+  const database = new DatabaseSync(join(directory, 'api.db'));
+  database.exec(`CREATE TRIGGER reject_test_write BEFORE INSERT ON tasks
+    WHEN NEW.fields_json LIKE '%rollback-marker%'
+    BEGIN SELECT RAISE(ABORT, 'private database detail'); END;`);
+  t.after(() => { database.exec('DROP TRIGGER IF EXISTS reject_test_write'); database.close(); });
+  const failed = await request(path, 'PATCH', { fields: { users: 'rollback-marker' }, confirmedFields: [] });
+  assert.equal(failed.status, 500);
+  assert.equal(failed.body.error.code, 'INTERNAL_ERROR');
+  assert.ok(!JSON.stringify(failed.body).includes('private database detail'));
+  assert.deepEqual((await request(path)).body, created.body);
+  database.exec('DROP TRIGGER reject_test_write');
+  const retried = await request(path, 'PATCH', { fields: { users: 'Новые сотрудники' }, confirmedFields: ['users'] });
+  assert.equal(retried.status, 200);
+  assert.equal(retried.body.score, 10);
 });

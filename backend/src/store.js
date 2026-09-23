@@ -3,8 +3,8 @@ import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { scoreTask } from './scoring.js';
-import { taskThemes } from './task-schema.js';
 import { demoTeams } from './demo-teams.js';
+import { demoTasks } from './demo-tasks.js';
 
 export const tasks = new Map();
 export const teams = new Map();
@@ -58,9 +58,6 @@ try {
   db.exec('COMMIT');
 } catch (error) { db.exec('ROLLBACK'); throw error; }
 
-const sampleFields = (n) => ({ title: `Демонстрационная бизнес-задача ${n}`, context: `Синтетическая задача ${n}: требуется улучшить бизнес-процесс.`, need: 'Снизить трудозатраты сотрудников.', users: 'Сотрудники компании', data: n % 2 ? 'Доступны обезличенные CSV-отчёты' : '', expectedResult: 'Рабочий прототип решения', successCriteria: n < 4 ? '' : 'Сократить время операции на 20%', constraints: 'Без обработки персональных данных', contact: 'Операционный менеджер', interactionFormat: 'Еженедельный созвон и комментарии к демо в течение двух рабочих дней' });
-const sampleThemes = taskThemes;
-
 function addTask(record) {
   const fields = record.fields || {};
   const confirmedFields = Array.isArray(record.confirmedFields) ? record.confirmedFields : [];
@@ -77,10 +74,12 @@ function addTeam(record) {
 
 function seed() {
   for (const team of demoTeams) addTeam(team);
-  for (let i = 1; i <= 5; i += 1) {
-    const id = `task_${i}`, fields = sampleFields(i), confirmedFields = Object.keys(fields).filter((key) => fields[key]), createdAt = now();
-    addTask({ id, status: 'published', fields, confirmedFields, theme: sampleThemes[i - 1], createdAt, updatedAt: createdAt });
-    proposals.set(`proposal_${i}`, { id: `proposal_${i}`, taskId: id, teamId: `team_${i}`, solutionIdea: 'Синтетическая идея решения', plan: 'Исследование, прототипирование и проверка', estimatedTime: '2 недели', prototypeUrl: 'https://example.com', status: 'pending', createdAt });
+  for (const [index, example] of demoTasks.entries()) {
+    const { id, fields, theme, teamId, solutionIdea, plan, estimatedTime } = example;
+    const confirmedFields = Object.keys(fields).filter(key => fields[key].trim()), createdAt = now();
+    addTask({ id, status: 'published', fields, confirmedFields, theme, createdAt, updatedAt: createdAt });
+    const proposalId = `proposal_${index + 1}`;
+    proposals.set(proposalId, { id: proposalId, taskId: id, teamId, solutionIdea, plan, estimatedTime, prototypeUrl: `https://example.com/prototypes/${id}`, status: 'pending', createdAt });
   }
 }
 
@@ -94,14 +93,22 @@ export function persist() {
   const insertTask = db.prepare('INSERT INTO tasks (id, status, fields_json, confirmed_fields_json, theme, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const insertTeam = db.prepare('INSERT INTO teams (id, name, university, interests_json, skills_json, technologies_json) VALUES (?, ?, ?, ?, ?, ?)');
   const insertProposal = db.prepare('INSERT INTO proposals (id, task_id, team_id, solution_idea, plan, estimated_time, prototype_url, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  db.exec('BEGIN');
+  let transactionStarted = false;
   try {
+    db.exec('BEGIN');
+    transactionStarted = true;
     db.exec('DELETE FROM proposals; DELETE FROM tasks; DELETE FROM teams;');
     for (const task of tasks.values()) insertTask.run(task.id, task.status, JSON.stringify(task.fields), JSON.stringify(task.confirmedFields), task.theme || null, task.createdAt, task.updatedAt);
     for (const team of teams.values()) insertTeam.run(team.id, team.name, team.university, JSON.stringify(team.interests), JSON.stringify(team.skills), JSON.stringify(team.technologies));
     for (const proposal of proposals.values()) insertProposal.run(proposal.id, proposal.taskId, proposal.teamId, proposal.solutionIdea, proposal.plan, proposal.estimatedTime, proposal.prototypeUrl, proposal.status, proposal.createdAt);
     db.exec('COMMIT');
-  } catch (error) { db.exec('ROLLBACK'); throw error; }
+  } catch (error) {
+    if (transactionStarted) db.exec('ROLLBACK');
+    // A failed write must not leave unpublished database changes visible in GET.
+    tasks.clear(); teams.clear(); proposals.clear();
+    restore();
+    throw error;
+  }
 }
 
 export function initializeStore() {

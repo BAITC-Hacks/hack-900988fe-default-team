@@ -4,21 +4,18 @@ export const categories = [
   ['constraints', 'Ограничения', 10], ['users', 'Пользователи', 10], ['businessConnection', 'Связь с бизнесом', 10],
 ];
 const missingRecommendations = {
-  context: 'Опишите текущую ситуацию и потребность.', data: 'Укажите доступные данные и материалы.',
-  expectedResult: 'Опишите ожидаемый результат.', successCriteria: 'Добавьте измеримые критерии успеха.',
-  constraints: 'Укажите важные ограничения.', users: 'Назовите пользователей решения.',
-  businessConnection: 'Укажите контакт и формат консультаций/обратной связи.',
+  context: 'Заполните и подтвердите текущую ситуацию и потребность бизнеса (context и need).', data: 'Укажите и подтвердите доступные данные и материалы.',
+  expectedResult: 'Опишите и подтвердите ожидаемый результат.', successCriteria: 'Добавьте и подтвердите измеримые критерии успеха.',
+  constraints: 'Укажите и подтвердите важные ограничения.', users: 'Назовите и подтвердите пользователей решения.',
+  businessConnection: 'Укажите и подтвердите контакт и формат консультаций/обратной связи.',
 };
 export function scoreTask(fields = {}, confirmedFields = []) {
   const confirmed = new Set(confirmedFields);
   const scoreBreakdown = categories.map(([key, label, max]) => {
-    const businessConnection = key === 'businessConnection';
-    const isConfirmed = businessConnection
-      ? confirmed.has('contact') && confirmed.has('interactionFormat')
-      : confirmed.has(key);
-    const isFilled = businessConnection
-      ? typeof fields.contact === 'string' && fields.contact.trim() && typeof fields.interactionFormat === 'string' && fields.interactionFormat.trim()
-      : typeof fields[key] === 'string' && fields[key].trim();
+    const requiredFields = key === 'businessConnection' ? ['contact', 'interactionFormat']
+      : key === 'context' ? ['context', 'need'] : [key];
+    const isConfirmed = requiredFields.every(field => confirmed.has(field));
+    const isFilled = requiredFields.every(field => typeof fields[field] === 'string' && fields[field].trim());
     const earned = isConfirmed && isFilled ? max : 0;
     return { key, label, earned, max, confirmed: Boolean(isConfirmed), recommendation: earned ? null : missingRecommendations[key] };
   });

@@ -1,6 +1,6 @@
 import { llmConfig, requestStructuredAnalysis } from './llm.js';
 const fieldNames = ['title','context','need','users','data','constraints','expectedResult','successCriteria','contact','interactionFormat'];
-const labels = { users: 'Кто является основным пользователем решения?', data: 'Какие данные или материалы уже доступны?', successCriteria: 'Как будет измеряться успешный результат?', expectedResult: 'Какой результат вы ожидаете получить?', constraints: 'Какие ограничения важно учесть?', context: 'Что происходит сейчас и какую потребность нужно решить?', need: 'Какую проблему необходимо решить?', contact: 'Кто будет контактным лицом?', interactionFormat: 'Какой формат взаимодействия с командой вам подходит?' };
+const labels = { users: 'Кто является основным пользователем решения?', data: 'Какие данные или материалы уже доступны?', successCriteria: 'Как будет измеряться успешный результат?', expectedResult: 'Какой результат вы ожидаете получить?', constraints: 'Какие ограничения важно учесть?', context: 'Что происходит сейчас и какую потребность нужно решить?', need: 'Какую проблему необходимо решить?', contact: 'Кто будет контактным лицом и как с ним связаться?', interactionFormat: 'Как будут проходить консультации и в какие сроки бизнес даст обратную связь по промежуточному результату?' };
 const emptyFields = () => Object.fromEntries(fieldNames.map(key => [key, '']));
 function buildQuestions(extractedFields, candidates = []) {
   const missingFields = Object.keys(labels).filter(key => !extractedFields[key].trim());
@@ -15,7 +15,9 @@ function buildQuestions(extractedFields, candidates = []) {
     questions.push({ id: `q${questions.length + 1}`, field, text: normalizedText });
   };
   for (const question of candidates) {
-    if (question && missingFields.includes(question.field) && typeof question.text === 'string') add(question.field, question.text);
+    // Preserve AI's choice of gaps, but use neutral wording: a model question can
+    // otherwise smuggle invented numbers, systems or agreements into its premise.
+    if (question && missingFields.includes(question.field) && typeof question.text === 'string' && question.text.trim()) add(question.field, labels[question.field]);
   }
   for (const field of missingFields) {
     if (questions.length >= 3) break;
@@ -35,27 +37,42 @@ function parseAnalysis(text) {
       || !Array.isArray(parsed.questions)) throw new Error('Invalid analysis');
   return parsed;
 }
-const normalize = (value) => value.toLocaleLowerCase().replace(/[\p{P}\p{S}\s]+/gu, ' ').trim();
-const fieldEvidence = {
-  context: (text) => !/(нужно|требует|необходим|данн|чек|ожидаем|результат|прототип|успех|огранич|нельзя|связь с бизнесом)/.test(text),
-  need: (text) => /(нужно|требует|необходим|цель|проблем)/.test(text) && !/(данн|чек|ожидаем|результат|прототип|связь с бизнесом)/.test(text),
-  users: (text) => /(пользовател|сотрудник|клиент|посетител|студент)/.test(text),
-  data: (text) => /(данн|csv|чек|таблиц|отч[её]т|метрик)/.test(text) && !/(ожидаем|результат|прототип)/.test(text),
-  constraints: (text) => /(огранич|нельзя|только|без |бюджет|срок)/.test(text),
-  expectedResult: (text) => /(ожидаем|результат|прототип|mvp|решени)/.test(text) && !/(данн|чек)/.test(text),
-  successCriteria: (text) => /(успех|критер|измер|процент|сократ)/.test(text),
-  contact: (text) => /(контакт|менеджер|ответствен|телефон|почт|@)/.test(text),
-  interactionFormat: (text) => /(взаимодейств|встреч|демонстрац|созвон|формат)/.test(text),
-};
+// Keep punctuation: removing it can change emails, signs and decimal values.
+const normalize = (value) => value.toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+// Reject explicit category mismatches, without requiring a keyword in every fact.
+// Unlabelled excerpts still rely on the model's mapping and human confirmation.
+const fieldMarkers = [
+  ['expectedResult', /^(?:ожидаем\S* результат|результат\s*[:—-]|(?:веб[- ]?)?прототип|mvp\b)/u],
+  ['successCriteria', /^(?:успех|критери\S* успех|успешност)/u],
+  ['constraints', /^(?:ограничени|нельзя|бюджет\s*[:—-])/u],
+  ['data', /^(?:доступны\s+(?:обезличенные\s+)?(?:данные|csv|таблицы|отч[её]ты)|данные(?=\s|$|[:—-])|материалы\s*[:—-])/u],
+  ['need', /^(?:нужно|хотим|необходимо|требуется|цель\s*[:—-]|потребность\s*[:—-])/u],
+  ['contact', /^(?:контакт|ответственн|телефон\s*[:—-]|почта\s*[:—-])/u],
+  ['interactionFormat', /^(?:формат\s*[:—-]|формат взаимодействия|формат консультаций)/u],
+  ['users', /^(?:пользователи\s*[:—-])/u],
+  ['context', /^(?:контекст\s*[:—-])/u],
+];
 export function sourceSupported(value, draft) {
   const candidate = normalize(value);
-  return candidate.length >= 3 && normalize(draft).includes(candidate);
+  if (!candidate) return false;
+  const source = normalize(draft);
+  for (let start = source.indexOf(candidate); start !== -1; start = source.indexOf(candidate, start + 1)) {
+    const end = start + candidate.length;
+    const word = /[\p{L}\p{N}_]/u;
+    if (word.test(candidate[0]) && start > 0 && word.test(source[start - 1])) continue;
+    if (word.test(candidate.at(-1)) && end < source.length && word.test(source[end])) continue;
+    // A quote must not turn "не используем SAP" into "используем SAP".
+    const prefix = source.slice(0, start).split(/[.!?;:]/u).at(-1);
+    if (/(?:^|\s)(?:не|нет|без|нельзя|not|no|without)(?:\s|$)/u.test(prefix)) continue;
+    return true;
+  }
+  return false;
 }
 export function sanitizeExtractedFields(rawFields, draft) {
   return Object.fromEntries(fieldNames.map((key) => {
     const value = typeof rawFields?.[key] === 'string' ? rawFields[key].trim() : '';
-    const evidence = fieldEvidence[key];
-    return [key, sourceSupported(value, draft) && (!evidence || evidence(normalize(value))) ? value : ''];
+    const markedField = fieldMarkers.find(([, pattern]) => pattern.test(normalize(value)))?.[0];
+    return [key, sourceSupported(value, draft) && (key === 'title' || !markedField || markedField === key) ? value : ''];
   }));
 }
 export function fallbackAnalysis(draft) {
