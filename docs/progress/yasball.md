@@ -52,6 +52,12 @@
 - Изменённые файлы: `frontend/src/App.jsx`, `frontend/src/styles.css`, `frontend/src/api/mockAdapter.js`, `frontend/src/api/mockAdapter.test.js`, `docs/progress/yasball.md`.
 - Проверки: `npm run lint`, `npm run test` (4 теста), `npm run build` — успешно.
 
+### 2026-09-23 — Docker-сборка frontend
+
+- Добавлены `frontend/Dockerfile` с multi-stage сборкой Vite в Node 22 и раздачей статики через Nginx, а также `frontend/.dockerignore` без зависимостей, сборочных артефактов и `.env`.
+- В `frontend/README.md` добавлены команды самостоятельной сборки и запуска образа. Общий `docker-compose.yaml` не изменялся.
+- Проверка: `docker build -t hackalem-frontend:local ./frontend` — успешно.
+
 ## Следующий шаг
 
 После готовности backend переключить adapter на `VITE_API_BASE_URL` и провести интеграционный сценарий.

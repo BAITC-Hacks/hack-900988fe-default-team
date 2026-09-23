@@ -22,6 +22,17 @@ npm run build
 npm run test
 ```
 
+## Docker
+
+Собрать образ из корня репозитория:
+
+```bash
+docker build -t hackalem-frontend ./frontend
+docker run --rm -p 8080:80 hackalem-frontend
+```
+
+После запуска приложение доступно по адресу `http://localhost:8080`. Сборка не содержит секретов и использует mock adapter, пока не подключён backend.
+
 ## Переменные окружения
 
 `VITE_API_BASE_URL` — адрес API с префиксом `/api`. Пустое значение означает работу через mock adapter. Секреты не требуются.
