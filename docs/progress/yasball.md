@@ -39,6 +39,10 @@
 - Изменённые файлы: `frontend/package.json`, `frontend/package-lock.json`, `frontend/index.html`, `frontend/eslint.config.js`, `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/src/styles.css`, `frontend/src/api/mockAdapter.js`, `frontend/src/api/mockAdapter.test.js`, `frontend/.env.example`, `frontend/README.md`.
 - Проверки: `npm run lint`, `npm run test` (2 теста), `npm run build` — успешно.
 
+### 2026-09-23 — правило игнорирования frontend
+
+- По явному запросу добавлен `frontend/.gitignore`, исключающий `node_modules/` и `dist/` из Git.
+
 ## Следующий шаг
 
 Добавить отдельные экран каталога с сортировкой и фильтрами, а также страницу конкретной задачи. После готовности backend переключить adapter на `VITE_API_BASE_URL` и провести интеграционный сценарий.
@@ -49,4 +53,4 @@
 
 ## Предложения для интеграции
 
-- Добавить в корневой `.gitignore` правила `frontend/node_modules/` и `frontend/dist/`, поскольку они появляются при локальной установке и сборке. Изменение выполнить только в интеграционное окно.
+- Выполнено: `frontend/.gitignore` исключает `node_modules/` и `dist/`.
