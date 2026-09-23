@@ -12,7 +12,7 @@ npm run dev
 
 Для обычного запуска используйте `npm start`. По умолчанию сервер слушает порт `3000`, frontend разрешён на `http://localhost:5173`.
 
-Переменные окружения: `PORT`, `DATABASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `FRONTEND_ORIGIN`. Ключ OpenAI необязателен: без него анализ возвращает fallback. Не добавляйте `.env` в репозиторий.
+Переменные окружения: `PORT`, `DATABASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `FRONTEND_ORIGIN`, `API_BASE_URL`. Ключ OpenAI необязателен: без него анализ возвращает fallback. `API_BASE_URL` задаёт первый вариант сервера в Swagger, например `https://api.example.com/api`. Не добавляйте `.env` в репозиторий.
 
 ## API и сценарий
 

@@ -101,6 +101,13 @@
 - Изменены: `backend/src/server.js`, `backend/test/api.test.js`, `backend/README.md`.
 - Проверки: `node --test` — 8/8 passed.
 
+### 2026-09-23 — выбор base URL в Swagger
+
+- Swagger показывает выбор сервера: текущий backend и `http://localhost:3000/api`. Если задан `API_BASE_URL`, он становится первым вариантом в dropdown, например для туннеля или развёрнутого API.
+- Добавлена безопасная переменная `API_BASE_URL` в `.env.example` и тест OpenAPI-конфигурации.
+- Изменены: `backend/src/openapi.js`, `backend/src/server.js`, `backend/.env.example`, `backend/README.md`, `backend/test/openapi.test.js`.
+- Проверки: `node --test` — 9/9 passed.
+
 ## Следующий шаг
 
 Согласовать интеграцию frontend mock adapter с API и недостающее поле `businessLink`; затем проверить Structured Output с тестовым ключом OpenAI.

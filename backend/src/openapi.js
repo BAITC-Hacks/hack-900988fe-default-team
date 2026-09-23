@@ -17,7 +17,7 @@ const taskFields = {
 export const openapi = {
   openapi: '3.0.3',
   info: { title: 'HackAlem AI API', version: '0.1.0', description: 'API конструктора и каталога бизнес-задач для студенческих команд.' },
-  servers: [{ url: '/api', description: 'Текущий backend' }],
+  servers: [{ url: '/api', description: 'Текущий backend' }, { url: 'http://localhost:3000/api', description: 'Локальный backend' }],
   paths: {
     '/health': { get: { summary: 'Проверка доступности', responses: { 200: { description: 'Сервер доступен', content: { 'application/json': { schema: { type: 'object', properties: { status: { type: 'string', example: 'ok' } } } } } } } } },
     '/task-drafts/analyze': { post: { summary: 'Анализ черновика и вопросы', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['draft'], properties: { draft: { type: 'string' }, language: { type: 'string', example: 'ru' } } } } } }, responses: { 200: { description: 'Анализ', content: { 'application/json': { schema: { $ref: '#/components/schemas/Analysis' } } } }, 400: { $ref: '#/components/responses/ValidationError' } } } },
@@ -51,3 +51,15 @@ export const openapi = {
     },
   },
 };
+
+export function buildOpenapi(apiBaseUrl) {
+  const configuredUrl = apiBaseUrl?.trim().replace(/\/$/, '');
+  if (!configuredUrl) return openapi;
+  return {
+    ...openapi,
+    servers: [
+      { url: configuredUrl, description: 'URL из API_BASE_URL' },
+      ...openapi.servers.filter((server) => server.url !== configuredUrl),
+    ],
+  };
+}

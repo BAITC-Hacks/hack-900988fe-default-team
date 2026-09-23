@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { tasks, teams, proposals, analyses, initializeStore, persist, makeId, timestamp } from './store.js';
 import { scoreTask } from './scoring.js';
 import { analyzeDraft, fallbackAnalysis } from './ai.js';
-import { openapi } from './openapi.js';
+import { buildOpenapi } from './openapi.js';
 
 initializeStore();
 const port = Number(process.env.PORT || 3000);
@@ -31,7 +31,7 @@ function validHttpUrl(value) { try { const url = new URL(value); return url.prot
 async function route(req,res) {
   if (req.method==='OPTIONS') return send(res,204,{});
   const url=new URL(req.url,'http://localhost'), path=url.pathname, data=await body(req);
-  if (req.method === 'GET' && path === '/api/openapi.json') return send(res,200,openapi);
+  if (req.method === 'GET' && path === '/api/openapi.json') return send(res,200,buildOpenapi(process.env.API_BASE_URL));
   if (req.method === 'GET' && (path === '/api/docs' || path === '/api/docs/')) return sendAsset(res, 'text/html; charset=utf-8', swaggerPage);
   if (req.method === 'GET' && swaggerAssets[path]) {
     const [type, filename] = swaggerAssets[path];
