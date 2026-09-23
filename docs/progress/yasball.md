@@ -67,6 +67,10 @@
 - Изменённые файлы: `frontend/src/App.jsx`, `frontend/src/api/adapter.js`, `frontend/src/api/httpAdapter.js`, `frontend/src/api/httpAdapter.test.js`, `frontend/.env.example`, `frontend/README.md`, `docs/progress/yasball.md`.
 - Проверки: `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно; Vite dev-сервер отвечает на `http://127.0.0.1:5173` (HTTP 200).
 
+### 2026-09-23 — защита локальной конфигурации
+
+- В `frontend/.gitignore` добавлен `.env`; безопасный `frontend/.env.example` остаётся в репозитории.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.
