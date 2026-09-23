@@ -66,6 +66,41 @@
 - Изменены: `backend/src/openapi.js`, `backend/src/server.js`, `backend/package.json`, `backend/package-lock.json`, `backend/README.md`.
 - Проверки: `node --test` — 3/3 passed; на изолированном сервере `GET /api/docs`, `GET /api/openapi.json` и раздача `swagger-ui-bundle.js` вернули 200. Временные SQLite-файлы smoke-проверки удалены.
 
+### 2026-09-23 — защита от неподтверждённых AI-фактов
+
+- Structured Output теперь запрашивает для полей только точные фрагменты исходного черновика. После ответа модели backend дополнительно нормализует текст и принимает значение только если оно содержится в черновике; неподтверждённые значения очищаются.
+- Добавлен regression-тест: подтверждённые фрагменты сохраняются, выдуманный ожидаемый результат удаляется.
+- Изменены: `backend/src/ai.js`, `backend/test/ai.test.js`, `backend/README.md`.
+- Проверки: `node --test` — 4/4 passed.
+
+### 2026-09-23 — интеграционные HTTP-тесты
+
+- Добавлен изолированный HTTP-тест с временной SQLite-базой. Он подтверждает анализ fallback, создание задачи с рейтингом 20, публикацию низкорейтинговой задачи, создание отклика и ручной выбор команды.
+- Добавлена проверка контрактной формы ошибки валидации. Server export `createServer` позволяет запускать API в тесте без выделенного порта; SQLite-подключение явным образом закрывается перед удалением временной базы на Windows.
+- Изменены: `backend/src/server.js`, `backend/src/store.js`, `backend/test/api.test.js`, `backend/README.md`.
+- Проверки: `node --test` — 6/6 passed.
+
+### 2026-09-23 — demo-каталог и фильтрация
+
+- Пять seed-задач получили разные темы: `operations`, `hr`, `finance`, `education`, `sustainability`. Это делает фильтр `theme` демонстрируемым на реальных данных.
+- Добавлен HTTP-тест фильтра `theme=finance` и сортировки `score_desc`.
+- Изменены: `backend/src/store.js`, `backend/test/api.test.js`.
+- Проверки: `node --test` — 7/7 passed.
+
+### 2026-09-23 — проверка Structured Output
+
+- Добавлен тест OpenAI-провайдера с подменённым ответом сети: проверяется отправка JSON Schema Structured Output, корректная обработка ответа и очистка неподтверждённого AI-результата.
+- Тест не использует реальный ключ и не выполняет внешних запросов.
+- Изменены: `backend/test/ai.test.js`.
+- Проверки: `node --test` — 8/8 passed.
+
+### 2026-09-23 — расширенная валидация API
+
+- Добавлена проверка `answers` и `currentFields` для compose, строкового языка анализа, допустимых `level` и `sort` в каталоге, а также HTTP(S)-URL прототипа в отклике.
+- Невалидные параметры возвращают единый объект ошибки с кодом `VALIDATION_ERROR`.
+- Изменены: `backend/src/server.js`, `backend/test/api.test.js`, `backend/README.md`.
+- Проверки: `node --test` — 8/8 passed.
+
 ## Следующий шаг
 
 Согласовать интеграцию frontend mock adapter с API и недостающее поле `businessLink`; затем проверить Structured Output с тестовым ключом OpenAI.

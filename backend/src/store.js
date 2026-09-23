@@ -41,6 +41,7 @@ db.exec(`
 `);
 
 const sampleFields = (n) => ({ title: `Демонстрационная бизнес-задача ${n}`, context: `Синтетическая задача ${n}: требуется улучшить бизнес-процесс.`, need: 'Снизить трудозатраты сотрудников.', users: 'Сотрудники компании', data: n % 2 ? 'Доступны обезличенные CSV-отчёты' : '', expectedResult: 'Рабочий прототип решения', successCriteria: n < 4 ? '' : 'Сократить время операции на 20%', constraints: 'Без обработки персональных данных', businessLink: 'Операционная эффективность', contact: '', interactionFormat: '' });
+const sampleThemes = ['operations', 'hr', 'finance', 'education', 'sustainability'];
 
 function addTask(record) {
   const fields = record.fields || {};
@@ -52,7 +53,7 @@ function seed() {
   for (let i = 1; i <= 5; i += 1) teams.set(`team_${i}`, { id: `team_${i}`, name: `Демо-команда ${i}`, university: `Университет ${i}` });
   for (let i = 1; i <= 5; i += 1) {
     const id = `task_${i}`, fields = sampleFields(i), confirmedFields = Object.keys(fields).filter((key) => fields[key]), createdAt = now();
-    addTask({ id, status: 'published', fields, confirmedFields, theme: 'operations', createdAt, updatedAt: createdAt });
+    addTask({ id, status: 'published', fields, confirmedFields, theme: sampleThemes[i - 1], createdAt, updatedAt: createdAt });
     proposals.set(`proposal_${i}`, { id: `proposal_${i}`, taskId: id, teamId: `team_${i}`, solutionIdea: 'Синтетическая идея решения', plan: 'Исследование, прототипирование и проверка', estimatedTime: '2 недели', prototypeUrl: 'https://example.com', status: 'pending', createdAt });
   }
 }
@@ -86,6 +87,10 @@ export function initializeStore() {
     for (const proposal of legacyData.proposals || []) if (proposal?.id && tasks.has(proposal.taskId) && teams.has(proposal.teamId)) proposals.set(proposal.id, proposal);
     persist();
   } else if (!tasks.size) { seed(); persist(); }
+}
+
+export function closeStore() {
+  db.close();
 }
 
 export const makeId = (prefix) => `${prefix}_${randomUUID()}`;
