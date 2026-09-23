@@ -6,11 +6,11 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { tasks, teams, proposals, analyses, initializeStore, persist, makeId, timestamp } from './store.js';
 import { scoreTask } from './scoring.js';
-import { analyzeDraft, fallbackAnalysis } from './ai.js';
+import { analyzeDraft } from './ai.js';
 import { buildOpenapi } from './openapi.js';
 
 initializeStore();
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3388);
 const send = (res, status, body) => { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Access-Control-Allow-Origin':process.env.FRONTEND_ORIGIN || 'http://localhost:5173', 'Access-Control-Allow-Headers':'Content-Type', 'Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS' }); res.end(JSON.stringify(body)); };
 const error = (res,status,code,message,details={}) => send(res,status,{error:{code,message,details}});
 const sendAsset = (res, type, contents) => { res.writeHead(200, { 'Content-Type': type }); res.end(contents); };
@@ -41,7 +41,7 @@ async function route(req,res) {
   if (req.method==='POST' && path==='/api/task-drafts/analyze') {
     if (typeof data.draft!=='string' || !data.draft.trim()) return error(res,400,'VALIDATION_ERROR','Поле draft обязательно и должно быть строкой.');
     if (data.language !== undefined && typeof data.language !== 'string') return error(res,400,'VALIDATION_ERROR','Поле language должно быть строкой.');
-    const result=process.env.OPENAI_API_KEY ? await analyzeDraft(data.draft,data.language) : fallbackAnalysis(data.draft);
+    const result=await analyzeDraft(data.draft,data.language);
     const analysisId=`analysis_${randomUUID()}`; analyses.set(analysisId,{draft:data.draft,...result}); return send(res,200,{analysisId,...result});
   }
   if (req.method==='POST' && path==='/api/task-drafts/compose') {

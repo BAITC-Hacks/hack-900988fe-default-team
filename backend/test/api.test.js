@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer as createHttpServer } from 'node:http';
 
 const directory = mkdtempSync(join(tmpdir(), 'hackalem-api-'));
 process.env.DATABASE_URL = `file:${join(directory, 'api.db')}`;
 process.env.OPENAI_API_KEY = '';
+process.env.LLM_BASE_URL = '';
 const { createServer } = await import('../src/server.js');
 const { closeStore } = await import('../src/store.js');
 const server = createServer();
@@ -28,6 +30,40 @@ after(async () => {
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   closeStore();
   rmSync(directory, { recursive: true, force: true });
+});
+
+test('analysis endpoint uses configured Chat Completions and composes unconfirmed fields', async t => {
+  const saved = { ...process.env };
+  let received;
+  const provider = createHttpServer(async (req, res) => {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    received = { path: req.url, body: JSON.parse(raw) };
+    const fields = Object.fromEntries(['title','context','need','users','data','constraints','expectedResult','successCriteria','contact','interactionFormat'].map(key => [key, key === 'context' ? 'Очередь в столовой' : '']));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify({ extractedFields: fields, questions: [] }) } }] }));
+  });
+  t.after(async () => {
+    await new Promise(resolve => provider.close(resolve));
+    for (const key of Object.keys(process.env)) if (key.startsWith('LLM_')) delete process.env[key];
+    for (const [key, value] of Object.entries(saved)) if (key.startsWith('LLM_')) process.env[key] = value;
+  });
+  await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+  for (const key of Object.keys(process.env)) if (key.startsWith('LLM_')) delete process.env[key];
+  Object.assign(process.env, { LLM_BASE_URL: `http://127.0.0.1:${provider.address().port}/v1`, LLM_MODEL: 'local-qwen' });
+  const analysis = await request('/task-drafts/analyze', 'POST', { draft: 'Очередь в столовой' });
+  assert.equal(analysis.status, 200);
+  assert.equal(analysis.body.fallbackUsed, false);
+  assert.equal(received.path, '/v1/chat/completions');
+  assert.equal(received.body.model, 'local-qwen');
+  const question = analysis.body.questions[0];
+  const composed = await request('/task-drafts/compose', 'POST', {
+    analysisId: analysis.body.analysisId, draft: 'Очередь в столовой', currentFields: {},
+    answers: [{ questionId: question.id, field: question.field, answer: 'Сотрудники офиса' }],
+  });
+  assert.equal(composed.status, 200);
+  assert.equal(composed.body.fields[question.field], 'Сотрудники офиса');
+  assert.equal(composed.body.score, 0);
 });
 
 test('HTTP scenario allows low-score publication and manual team selection', async () => {

@@ -1,0 +1,9 @@
+node_modules
+.env
+*.db
+*.db-shm
+*.db-wal
+*.db.json.bak
+npm-debug.log*
+test
+README.md
