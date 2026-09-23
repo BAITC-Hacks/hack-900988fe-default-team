@@ -1,4 +1,4 @@
-const configuredBaseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:3388/api';
+const configuredBaseUrl = process.env.SMOKE_BASE_URL || `http://localhost:${process.env.PORT || 3388}/api`;
 const baseUrl = configuredBaseUrl.replace(/\/$/, '');
 
 async function request(path) {

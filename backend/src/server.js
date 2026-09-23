@@ -12,7 +12,7 @@ import { taskFieldNames, taskThemes, isRecord, isFilled } from './task-schema.js
 
 initializeStore();
 const port = Number(process.env.PORT || 3388);
-const send = (res, status, body) => { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Access-Control-Allow-Origin':process.env.FRONTEND_ORIGIN || 'http://localhost:5173', 'Access-Control-Allow-Headers':'Content-Type', 'Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS' }); res.end(JSON.stringify(body)); };
+const send = (res, status, body) => { res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Access-Control-Allow-Origin':process.env.FRONTEND_ORIGIN || 'http://localhost:5173', 'Access-Control-Allow-Headers':'Content-Type', 'Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS', 'Access-Control-Expose-Headers':'X-Request-Id' }); res.end(JSON.stringify(body)); };
 const error = (res,status,code,message,details={}) => send(res,status,{error:{code,message,details}});
 const sendAsset = (res, type, contents) => { res.writeHead(200, { 'Content-Type': type }); res.end(contents); };
 const require = createRequire(import.meta.url);
@@ -127,7 +127,9 @@ export function createServer({ logger = console, logRequests = process.env.REQUE
   return http.createServer((req, res) => {
     const requestId = randomUUID();
     const startedAt = performance.now();
-    const requestUrl = new URL(req.url, 'http://localhost');
+    let requestUrl;
+    try { requestUrl = new URL(req.url, 'http://localhost'); }
+    catch { return error(res, 400, 'INVALID_URL', 'Некорректный адрес запроса.'); }
     res.setHeader('X-Request-Id', requestId);
     if (logRequests) {
       res.once('finish', () => logger.info(JSON.stringify({
@@ -135,7 +137,10 @@ export function createServer({ logger = console, logRequests = process.env.REQUE
         status: res.statusCode, durationMs: Math.round(performance.now() - startedAt),
       })));
     }
-    route(req, res).catch((exception) => error(res, exception.status || 500, exception.code || 'INTERNAL_ERROR', exception.status ? exception.message : 'Внутренняя ошибка сервера.'));
+    route(req, res).catch((exception) => {
+      if (res.destroyed || res.writableEnded) return;
+      error(res, exception.status || 500, exception.status ? exception.code || 'VALIDATION_ERROR' : 'INTERNAL_ERROR', exception.status ? exception.message : 'Внутренняя ошибка сервера.');
+    });
   });
 }
 

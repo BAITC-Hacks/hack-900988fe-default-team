@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 // Isolate legacy-provider tests from the developer's LLM configuration.
 delete process.env.LLM_BASE_URL;
-import { analyzeDraft, fallbackAnalysis, sanitizeExtractedFields } from '../src/ai.js';
+import { analyzeDraft, fallbackAnalysis, sanitizeExtractedFields, sourceSupported } from '../src/ai.js';
 
 const draftText = 'Очередь в столовой';
 const fieldKeys = ['title', 'context', 'need', 'users', 'data', 'constraints', 'expectedResult', 'successCriteria', 'contact', 'interactionFormat'];
@@ -50,6 +50,43 @@ test('misclassified source excerpts are cleared instead of entering a wrong fiel
   assert.equal(fields.expectedResult, 'Ожидаемый результат — веб-прототип');
 });
 
+test('valid source excerpts survive without mandatory keywords', () => {
+  const fields = {
+    need: 'Хотим сократить очереди', expectedResult: 'Прототип анализа данных',
+    contact: 'demo@example.com', users: 'Кассиры', data: 'Обезличенные чеки за месяц',
+    context: 'Сотрудники вручную сверяют данные', constraints: 'Две недели',
+    interactionFormat: 'Комментарии к промежуточному демо в течение двух рабочих дней',
+    successCriteria: 'Среднее ожидание менее пяти минут',
+  };
+  const result = sanitizeExtractedFields(fields, Object.values(fields).join('. '));
+  for (const [key, value] of Object.entries(fields)) assert.equal(result[key], value, key);
+});
+
+test('grounding preserves punctuation in amounts and contacts', () => {
+  const fields = sanitizeExtractedFields({ contact: 'demo+other@example.com', constraints: 'Бюджет 1,000' }, 'demo-other@example.com. Бюджет 1.000');
+  assert.equal(fields.contact, '');
+  assert.equal(fields.constraints, '');
+});
+
+test('source matching does not extract part of a number or drop preceding negation', () => {
+  assert.equal(sourceSupported('20', 'Бюджет 120'), false);
+  assert.equal(sourceSupported('используем SAP', 'Мы не используем SAP'), false);
+  assert.equal(sourceSupported('Нужен прототип', 'Не нужен прототип'), false);
+  assert.equal(sourceSupported('не используем SAP', 'Мы не используем SAP'), true);
+  assert.equal(sourceSupported('QA', 'Пользователи: QA'), true);
+  assert.equal(sourceSupported('Прототип анализа данных', 'Без персональных данных. Прототип анализа данных'), true);
+});
+
+test('valid detailed AI output retains facts and still asks three questions', async t => {
+  const fields = { ...analysisFields(), need: 'Хотим сократить очереди', expectedResult: 'Прототип анализа данных', contact: 'demo@example.com' };
+  mockProvider(t, async () => ({ ok: true, json: async () => restResponse({ extractedFields: fields, questions: [] }) }));
+  const result = await analyzeDraft(Object.values(fields).filter(Boolean).join('. '));
+  assert.equal(result.fallbackUsed, false);
+  assert.deepEqual(result.extractedFields, fields);
+  assert.equal(result.questions.length, 3);
+  assert.ok(result.questions.every(question => !['need', 'expectedResult', 'contact'].includes(question.field)));
+});
+
 test('Structured Output response is verified against the draft', async (t) => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENAI_API_KEY;
@@ -91,6 +128,21 @@ test('questions are nonempty and unique after repairing malformed model question
   assert.equal(new Set(result.questions.map(q => q.field)).size, 3);
   assert.deepEqual(result.questions.map(q => q.id), ['q1', 'q2', 'q3']);
   assert.ok(result.questions.every(q => q.text.trim() && result.missingFields.includes(q.field)));
+});
+
+test('model questions cannot add invented premises', async t => {
+  mockProvider(t, async () => ({ ok: true, json: async () => restResponse({
+    extractedFields: analysisFields(), questions: [
+      { field: 'users', text: 'Как ваши 500 сотрудников используют SAP?' },
+      { field: 'data', text: 'Когда предоставите обещанный доступ к банковским счетам?' },
+      { field: 'successCriteria', text: 'Как подтвердите уже согласованную экономию 40 процентов?' },
+    ],
+  }) }));
+  const result = await analyzeDraft(draftText);
+  assert.equal(result.fallbackUsed, false);
+  assert.equal(result.questions.length, 3);
+  assert.ok(!JSON.stringify(result.questions).match(/500|SAP|банковск|40|согласован/));
+  assert.deepEqual(result.questions.map(question => question.field), ['users', 'data', 'successCriteria']);
 });
 
 for (const missingCount of [0, 1, 2]) {

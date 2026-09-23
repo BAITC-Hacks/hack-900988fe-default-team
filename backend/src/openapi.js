@@ -91,7 +91,36 @@ for (const operation of [openapi.paths['/task-drafts/compose'].post, openapi.pat
   operation.responses[400] = { $ref: '#/components/responses/ValidationError' };
 }
 openapi.paths['/task-drafts/compose'].post.description = 'Всегда возвращает неподтверждённую карточку со score 0. answers должны соответствовать questionId/field данного анализа, без повторов.';
+openapi.components.schemas.ScoreBreakdown.description = 'Категория context (20 баллов) требует заполненных и подтверждённых context и need. Категория businessConnection (10 баллов) требует заполненных и подтверждённых contact и interactionFormat. Остальные категории проверяют одноимённое поле. При невыполнении условий earned = 0 и recommendation объясняет недостающие сведения. Ключ категории не является дополнительным полем карточки.';
 openapi.paths['/tasks/{taskId}/proposals'].post.responses[404] = { $ref: '#/components/responses/NotFound' };
+
+openapi.paths['/openapi.json'] = { get: { summary: 'Спецификация OpenAPI', responses: { 200: { description: 'Документ OpenAPI 3.0.3', content: { 'application/json': { schema: { type: 'object' } } } } } } };
+openapi.paths['/docs'] = { get: { summary: 'Интерфейс Swagger UI', responses: { 200: { description: 'HTML со Swagger UI; /docs/ также поддерживается.', content: { 'text/html': { schema: { type: 'string' } } } } } } };
+openapi.components.responses.PayloadTooLarge = { description: 'PAYLOAD_TOO_LARGE: JSON-тело превышает 1 МБ.', content: { 'application/json': { schema: error } } };
+openapi.components.responses.InternalError = { description: 'INTERNAL_ERROR: запрос не удалось выполнить.', content: { 'application/json': { schema: error } } };
+for (const path of Object.values(openapi.paths)) {
+  for (const method of ['get', 'post', 'patch']) {
+    const operation = path[method];
+    if (!operation) continue;
+    operation.responses[500] = { $ref: '#/components/responses/InternalError' };
+    if (method !== 'get') {
+      operation.responses[400] ??= { $ref: '#/components/responses/ValidationError' };
+      operation.responses[413] = { $ref: '#/components/responses/PayloadTooLarge' };
+    }
+  }
+}
+openapi.components.schemas.Analysis.required = ['analysisId', 'extractedFields', 'missingFields', 'questions', 'fallbackUsed'];
+openapi.components.schemas.Analysis.properties.questions.minItems = 3;
+openapi.components.schemas.Analysis.properties.questions.items.required = ['id', 'field', 'text'];
+openapi.components.schemas.ScoreResult.required = ['fields', 'score', 'level', 'scoreBreakdown', 'missingFields'];
+openapi.components.schemas.ScoreResult.properties.missingFields.description = 'Ключи категорий без баллов, включая context и businessConnection; рекомендации находятся в scoreBreakdown.';
+openapi.components.schemas.ScoreBreakdown.required = ['key', 'label', 'earned', 'max', 'confirmed', 'recommendation'];
+openapi.components.schemas.Task.allOf[1].required = ['id', 'status', 'theme', 'confirmedFields', 'createdAt', 'updatedAt'];
+openapi.components.schemas.Task.allOf[1].properties.confirmedFields.items.enum = taskFieldNames;
+openapi.components.schemas.Proposal.allOf[1].required = ['id', 'taskId', 'status', 'createdAt'];
+openapi.paths['/task-drafts/analyze'].post.requestBody.content['application/json'].example = { draft: 'Хотим сократить очереди в корпоративной столовой с помощью AI.', language: 'ru' };
+openapi.paths['/task-drafts/analyze'].post.description = 'Извлечение сведений через Structured Output. Значения сверяются с черновиком; формулировки вопросов нейтральные, без придуманных предпосылок. При недоступном провайдере возвращается fallbackUsed: true и минимум три вопроса. Анализ хранится в памяти до перезапуска; созданные задачи сохраняются в SQLite.';
+openapi.paths['/tasks/{taskId}/publish'].post.description += ' Перед публикацией сохраните текущие поля и подтверждения через PATCH: publish использует сохранённую версию.';
 
 export function buildOpenapi(apiBaseUrl) {
   const configuredUrl = apiBaseUrl?.trim().replace(/\/$/, '');
