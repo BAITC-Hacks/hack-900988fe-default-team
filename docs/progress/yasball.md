@@ -71,6 +71,13 @@
 
 - В `frontend/.gitignore` добавлен `.env`; безопасный `frontend/.env.example` остаётся в репозитории.
 
+### 2026-09-23 — самостоятельный Compose frontend
+
+- Добавлен `frontend/compose.yaml`: самостоятельная production-сборка и запуск frontend на хост-порту `5380` без изменения общего корневого Compose-файла.
+- `VITE_API_BASE_URL` передаётся в Vite как build-argument, поэтому серверный деплой может собрать frontend с адресом реального API; пустое значение сохраняет mock-режим.
+- Обновлён `frontend/README.md` с командами `docker compose up --build -d` и остановки сервиса.
+- Проверки: `docker compose -f compose.yaml config`, `npm run lint`, `npm run build` — успешно.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.

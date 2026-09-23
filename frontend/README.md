@@ -24,14 +24,28 @@ npm run test
 
 ## Docker
 
-Собрать образ из корня репозитория:
+Из каталога `frontend/` запустите отдельный Compose-проект. Он не использует и не изменяет общий корневой `docker-compose.yaml`, а приложение будет доступно на порту `5380`:
+
+```bash
+docker compose up --build -d
+```
+
+Остановить его:
+
+```bash
+docker compose down
+```
+
+После запуска приложение доступно по адресу `http://localhost:5380`. По умолчанию оно использует mock adapter. Чтобы встроить адрес API в production-сборку, укажите `VITE_API_BASE_URL` перед запуском Compose (например, `VITE_API_BASE_URL=https://api.example.com docker compose up --build -d`).
+
+Также образ можно собрать вручную из корня репозитория:
 
 ```bash
 docker build -t hackalem-frontend ./frontend
 docker run --rm -p 8080:80 hackalem-frontend
 ```
 
-После запуска приложение доступно по адресу `http://localhost:8080`. Сборка не содержит секретов и использует mock adapter, пока не задан адрес backend.
+Сборка не содержит секретов и использует mock adapter, пока не задан адрес backend.
 
 ## Переменные окружения
 
