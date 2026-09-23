@@ -11,7 +11,8 @@ process.env.OPENAI_API_KEY = '';
 process.env.LLM_BASE_URL = '';
 const { createServer } = await import('../src/server.js');
 const { closeStore } = await import('../src/store.js');
-const server = createServer();
+const requestLogs = [];
+const server = createServer({ logger: { info: (line) => requestLogs.push(JSON.parse(line)) } });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const address = server.address();
 const baseUrl = `http://127.0.0.1:${address.port}/api`;
@@ -121,4 +122,17 @@ test('catalog filters by theme and sorts by readiness score', async () => {
   const catalog = await request('/tasks?sort=score_desc');
   assert.equal(catalog.status, 200);
   assert.equal(catalog.body.every((task, index, list) => index === 0 || list[index - 1].score >= task.score), true);
+});
+
+test('request log contains safe metadata without request bodies or query parameters', async () => {
+  const response = await request('/tasks?theme=finance&token=not-logged');
+  assert.equal(response.status, 200);
+  const entry = requestLogs.at(-1);
+  assert.equal(entry.event, 'http_request');
+  assert.equal(entry.method, 'GET');
+  assert.equal(entry.path, '/api/tasks');
+  assert.equal(entry.status, 200);
+  assert.equal(typeof entry.requestId, 'string');
+  assert.equal(Number.isInteger(entry.durationMs), true);
+  assert.equal(JSON.stringify(entry).includes('not-logged'), false);
 });
