@@ -13,8 +13,8 @@
 ## Статус
 
 - [x] Каркас приложения
-- [ ] Роутинг и layout
-  - Отдельные экраны каталога и детальной задачи реализованы без новой зависимости для роутинга.
+- [x] Роутинг и layout
+  - Нативные URL `/`, `/catalog` и `/tasks/:taskId` работают без новой зависимости; Nginx поддерживает прямое открытие маршрутов.
 - [x] Переключатель роли Бизнес/Команда
 - [x] AI-конструктор задачи
 - [x] Экран вопросов и ответов
@@ -78,6 +78,20 @@
 - Обновлён `frontend/README.md` с командами `docker compose up --build -d` и остановки сервиса.
 - Проверки: `docker compose -f compose.yaml config`, `npm run lint`, `npm run build` — успешно.
 
+### 2026-09-23 — выравнивание подтверждений с API
+
+- Редактор карточки теперь требует явного ручного подтверждения каждого учитываемого поля. Пока поле не подтверждено, оно не добавляет баллы; изменение ранее подтверждённого значения снимает его подтверждение.
+- Добавлено поле `businessLink` («Связь с бизнесом») — седьмая категория реального scoring backend. Mock adapter приведён к той же модели `confirmedFields`, что и API.
+- Изменённые файлы: `frontend/src/App.jsx`, `frontend/src/main.jsx`, `frontend/src/confirmation.css`, `frontend/src/api/mockAdapter.js`, `frontend/src/api/mockAdapter.test.js`, `docs/progress/yasball.md`.
+- Проверки: `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно.
+
+### 2026-09-23 — URL-маршруты каталога
+
+- Добавлена нативная маршрутизация без новой зависимости: `/` — конструктор, `/catalog` — каталог, `/tasks/:taskId` — детальная карточка. Кнопки навигации и browser back/forward синхронизируются с URL.
+- Добавлен Nginx fallback на `index.html`, поэтому прямые ссылки на каталог и карточки корректно работают в Docker/Compose-развёртывании.
+- Изменённые файлы: `frontend/src/App.jsx`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/README.md`, `docs/progress/yasball.md`.
+- Проверки: `docker compose build`, `docker compose config`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно; в тестовом Compose-контейнере прямые `/catalog` и `/tasks/task_canteen` вернули HTTP 200.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.
@@ -89,3 +103,4 @@
 ## Предложения для интеграции
 
 - Выполнено: `frontend/.gitignore` исключает `node_modules/` и `dist/`.
+- Для production Compose frontend на `http://<host>:5380` backend должен получить `FRONTEND_ORIGIN` с этим origin (либо проксироваться через один origin), иначе браузер заблокирует API-запросы по CORS. Это изменение относится к backend/интеграционному окну.

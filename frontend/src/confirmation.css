@@ -1,0 +1,21 @@
+.field-editor {
+  border-bottom: 1px solid #edf0f5;
+  padding-bottom: 8px;
+}
+
+.field-editor > label:first-child {
+  margin-bottom: 7px;
+}
+
+.confirmation {
+  align-items: center;
+  color: #526078;
+  display: flex;
+  font-size: .84rem;
+  gap: 8px;
+  margin: 0;
+}
+
+.confirmation input {
+  width: auto;
+}

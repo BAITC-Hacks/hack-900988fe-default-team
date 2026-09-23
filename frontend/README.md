@@ -38,6 +38,8 @@ docker compose down
 
 После запуска приложение доступно по адресу `http://localhost:5380`. По умолчанию оно использует mock adapter. Чтобы встроить адрес API в production-сборку, укажите `VITE_API_BASE_URL` перед запуском Compose (например, `VITE_API_BASE_URL=https://api.example.com docker compose up --build -d`).
 
+Каталог доступен по пути `/catalog`, а карточки — по `/tasks/<taskId>`; Nginx настроен так, чтобы эти прямые ссылки открывались после перезагрузки страницы.
+
 Также образ можно собрать вручную из корня репозитория:
 
 ```bash

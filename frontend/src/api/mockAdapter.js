@@ -10,13 +10,13 @@ const baseFields = {
   title: 'Сокращение очередей в корпоративной столовой',
   context: 'В корпоративной столовой в часы пик возникают очереди.',
   need: 'Сократить время ожидания сотрудников.',
-  users: '', data: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '',
+  users: '', data: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', businessLink: '',
 };
 
 const fieldMeta = [
   ['context', 'Контекст и потребность', 20], ['data', 'Данные и материалы', 20],
   ['expectedResult', 'Ожидаемый результат', 15], ['successCriteria', 'Критерии успеха', 15],
-  ['constraints', 'Ограничения', 10], ['users', 'Пользователи', 10], ['need', 'Связь с бизнесом', 10],
+  ['constraints', 'Ограничения', 10], ['users', 'Пользователи', 10], ['businessLink', 'Связь с бизнесом', 10],
 ];
 
 const catalogSeeds = [
@@ -43,7 +43,7 @@ const catalogSeeds = [
 ].map((task, index) => ({
   ...task,
   confirmedFields: Object.keys(task.fields).filter((key) => task.fields[key]),
-  ...calculateScore(task.fields),
+  ...calculateScore(task.fields, Object.keys(task.fields).filter((key) => task.fields[key])),
   createdAt: `2026-09-${18 + index}T09:00:00.000Z`,
   updatedAt: `2026-09-${18 + index}T09:00:00.000Z`,
 }));
@@ -51,8 +51,12 @@ const catalogSeeds = [
 let tasks = [...catalogSeeds];
 let proposals = [];
 
-export function calculateScore(fields) {
-  const scoreBreakdown = fieldMeta.map(([key, label, max]) => ({ key, label, max, earned: fields[key]?.trim() ? max : 0, confirmed: false, recommendation: fields[key]?.trim() ? null : `Добавьте поле «${label}»` }));
+export function calculateScore(fields, confirmedFields = []) {
+  const confirmed = new Set(confirmedFields);
+  const scoreBreakdown = fieldMeta.map(([key, label, max]) => {
+    const earned = confirmed.has(key) && fields[key]?.trim() ? max : 0;
+    return { key, label, max, earned, confirmed: confirmed.has(key), recommendation: earned ? null : `Добавьте и подтвердите поле «${label}»` };
+  });
   const score = scoreBreakdown.reduce((sum, item) => sum + item.earned, 0);
   return { score, level: score < 40 ? 'draft' : score < 70 ? 'working' : score < 90 ? 'ready' : 'priority', scoreBreakdown };
 }
@@ -64,10 +68,10 @@ export const mockAdapter = {
   async compose({ draft, answers, currentFields }) {
     const fields = { ...baseFields, ...currentFields, context: currentFields.context || draft };
     answers.forEach(({ field, answer }) => { fields[field] = answer; });
-    return wait({ fields, ...calculateScore(fields), missingFields: fieldMeta.filter(([key]) => !fields[key]?.trim()).map(([key]) => key) });
+    return wait({ fields, confirmedFields: [], ...calculateScore(fields), missingFields: fieldMeta.filter(([key]) => !fields[key]?.trim()).map(([key]) => key) });
   },
   async createTask({ fields, confirmedFields }) {
-    const task = { id: `task_${Date.now()}`, status: 'draft', theme: 'AI и данные', fields, confirmedFields, ...calculateScore(fields), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const task = { id: `task_${Date.now()}`, status: 'draft', theme: 'AI и данные', fields, confirmedFields, ...calculateScore(fields, confirmedFields), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     tasks = [task, ...tasks];
     return wait(task);
   },
