@@ -9,7 +9,7 @@ describe('mock adapter', () => {
   });
 
   it('calculates a deterministic score and level', () => {
-    const result = calculateScore({ context: 'есть', users: 'есть', data: 'есть', contact: 'Менеджер', interactionFormat: 'Еженедельный созвон' }, ['context', 'users', 'data', 'contact', 'interactionFormat']);
+    const result = calculateScore({ context: 'есть', need: 'есть', users: 'есть', data: 'есть', contact: 'Менеджер', interactionFormat: 'Еженедельный созвон' }, ['context', 'need', 'users', 'data', 'contact', 'interactionFormat']);
     expect(result.score).toBe(60);
     expect(result.level).toBe('working');
   });

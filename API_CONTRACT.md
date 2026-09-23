@@ -82,8 +82,8 @@
 ```json
 {
   "fields": {},
-  "score": 55,
-  "level": "working",
+  "score": 0,
+  "level": "draft",
   "scoreBreakdown": [
     {"key":"users","label":"Пользователи","earned":10,"max":10,"confirmed":false,"recommendation":null}
   ],
@@ -91,7 +91,7 @@
 }
 ```
 
-`compose` не подтверждает поля автоматически. Frontend показывает результат в редакторе.
+`compose` не подтверждает поля автоматически, поэтому всегда возвращает рейтинг 0. Frontend показывает результат в редакторе.
 
 ## Задачи
 
@@ -101,10 +101,13 @@
 
 ```json
 {
+  "theme": "operations",
   "fields": {},
   "confirmedFields": []
 }
 ```
+
+`theme` необязательна: `operations|hr|finance|education|sustainability`. При отсутствии возвращается `null`.
 
 ### `PATCH /api/tasks/:taskId`
 
@@ -112,14 +115,17 @@
 
 ```json
 {
+  "theme": "finance",
   "fields": {},
   "confirmedFields": ["context", "need", "users"]
 }
 ```
 
+`confirmedFields` обязателен и всегда передаётся полным актуальным списком; `[]` снимает все подтверждения. При отсутствии возвращается `400 VALIDATION_ERROR`. Не переданная `theme` сохраняет прежнее значение.
+
 ### `POST /api/tasks/:taskId/publish`
 
-Публикует подтверждённую карточку. Низкий рейтинг публикацию не блокирует.
+Публикует подтверждённую карточку. Низкий рейтинг публикацию не блокирует. Если нет ни одного непустого подтверждённого поля, возвращается `409 UNCONFIRMED_TASK`.
 
 ### `GET /api/tasks`
 
@@ -139,6 +145,7 @@
 {
   "id":"task_1",
   "status":"published",
+  "theme":"operations",
   "fields":{},
   "confirmedFields":[],
   "score":75,
@@ -148,6 +155,39 @@
   "updatedAt":"2026-09-23T00:00:00Z"
 }
 ```
+
+## Команды
+
+### `GET /api/teams`
+
+Возвращает профили команд для выбора при создании отклика:
+
+```json
+[
+  {
+    "id":"team_1",
+    "name":"Data Nomads",
+    "university":"Демо-университет 1",
+    "interests":["AI","логистика"],
+    "skills":["аналитика","UX"],
+    "technologies":["Python","React"]
+  }
+]
+```
+
+## Рейтинг
+
+Баллы начисляются только за заполненные и подтверждённые поля:
+
+| Категория | Условие | Баллы |
+|---|---|---:|
+| Контекст и потребность | `context` и `need` | 20 |
+| Данные и материалы | `data` | 20 |
+| Ожидаемый результат | `expectedResult` | 15 |
+| Критерии успеха | `successCriteria` | 15 |
+| Ограничения | `constraints` | 10 |
+| Пользователи | `users` | 10 |
+| Связь с бизнесом | `contact` и `interactionFormat` | 10 |
 
 ## Отклики
 
@@ -182,4 +222,3 @@
 3. Согласовать frontend и backend.
 4. Обновить контракт во время интеграционного окна.
 5. После изменения проверить mock adapter и реальный API.
-

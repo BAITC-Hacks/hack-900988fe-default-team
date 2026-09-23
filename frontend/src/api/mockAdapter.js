@@ -62,11 +62,11 @@ export function calculateScore(fields, confirmedFields = []) {
   const confirmed = new Set(confirmedFields);
   const scoreBreakdown = fieldMeta.map(([key, label, max]) => {
     const businessConnection = key === 'businessConnection';
-    const earned = businessConnection
-      ? confirmed.has('contact') && confirmed.has('interactionFormat') && fields.contact?.trim() && fields.interactionFormat?.trim() ? max : 0
-      : confirmed.has(key) && fields[key]?.trim() ? max : 0;
-    const isConfirmed = businessConnection ? confirmed.has('contact') && confirmed.has('interactionFormat') : confirmed.has(key);
-    return { key, label, max, earned, confirmed: isConfirmed, recommendation: earned ? null : businessConnection ? 'Укажите и подтвердите контакт и формат консультаций/обратной связи' : `Добавьте и подтвердите поле «${label}»` };
+    const contextAndNeed = key === 'context';
+    const requiredFields = businessConnection ? ['contact', 'interactionFormat'] : contextAndNeed ? ['context', 'need'] : [key];
+    const isConfirmed = requiredFields.every((field) => confirmed.has(field));
+    const earned = isConfirmed && requiredFields.every((field) => fields[field]?.trim()) ? max : 0;
+    return { key, label, max, earned, confirmed: isConfirmed, recommendation: earned ? null : businessConnection ? 'Укажите и подтвердите контакт и формат консультаций/обратной связи' : contextAndNeed ? 'Заполните и подтвердите контекст и потребность бизнеса' : `Добавьте и подтвердите поле «${label}»` };
   });
   const score = scoreBreakdown.reduce((sum, item) => sum + item.earned, 0);
   return { score, level: score < 40 ? 'draft' : score < 70 ? 'working' : score < 90 ? 'ready' : 'priority', scoreBreakdown };

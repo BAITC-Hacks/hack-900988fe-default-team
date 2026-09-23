@@ -133,6 +133,12 @@
 - Добавлена развёрнутая версия Problemly на сервере в Германии с production-доменами `haa.defaul7.net` и `haa-api.defaul7.net`.
 - Проверка: `git diff --check` — успешно.
 
+### 2026-09-23 — финальная синхронизация контракта и рейтинга
+
+- Mock frontend приведён к актуальной составной категории backend: 20 баллов «Контекст и потребность» требуют заполненных и подтверждённых `context` и `need`.
+- В интеграционное окно обновлён `API_CONTRACT.md`: задокументированы `theme`, `GET /api/teams`, полный обязательный `confirmedFields` при PATCH, `409 UNCONFIRMED_TASK` и формула рейтинга.
+- Проверки: `npm run lint`, `npm run test` (7 тестов), `npm run build`, `git diff --check` — успешно.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.
