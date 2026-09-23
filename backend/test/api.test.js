@@ -102,6 +102,10 @@ test('HTTP validation uses the contract error shape', async () => {
   assert.deepEqual(Object.keys(response.body.error).sort(), ['code', 'details', 'message']);
   assert.equal(response.body.error.code, 'VALIDATION_ERROR');
 
+  const removedField = await request('/tasks', 'POST', { fields: { contact: 'Менеджер', interactionFormat: 'Созвон' }, confirmedFields: ['businessLink'] });
+  assert.equal(removedField.status, 400);
+  assert.equal(removedField.body.error.code, 'VALIDATION_ERROR');
+
   const invalidCatalog = await request('/tasks?level=unknown');
   assert.equal(invalidCatalog.status, 400);
   assert.equal(invalidCatalog.body.error.code, 'VALIDATION_ERROR');

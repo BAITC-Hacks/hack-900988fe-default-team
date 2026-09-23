@@ -11,7 +11,7 @@ const error = {
 
 const taskFields = {
   type: 'object', additionalProperties: { type: 'string' },
-  example: { title: 'Умная очередь в столовой', context: 'В часы пик образуются очереди.', need: 'Снизить время ожидания.', users: 'Сотрудники офиса', data: 'Обезличенные чеки', expectedResult: 'Рабочий прототип', successCriteria: 'Сократить ожидание на 20%', constraints: 'Без персональных данных', businessLink: 'Экономия рабочего времени' },
+  example: { title: 'Умная очередь в столовой', context: 'В часы пик образуются очереди.', need: 'Снизить время ожидания.', users: 'Сотрудники офиса', data: 'Обезличенные чеки', expectedResult: 'Рабочий прототип', successCriteria: 'Сократить ожидание на 20%', constraints: 'Без персональных данных', contact: 'Операционный менеджер', interactionFormat: 'Еженедельный созвон и обратная связь по демо' },
 };
 
 export const openapi = {
