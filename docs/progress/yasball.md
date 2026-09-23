@@ -99,6 +99,13 @@
 - Для подключения production API backend должен разрешать CORS origin `https://haa.defaul7.net`; backend-файлы не изменялись.
 - Проверки: `docker compose config` подтвердил production API URL и образ `problemly-frontend:local`; `docker compose build`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно.
 
+### 2026-09-23 — единый Compose-запуск
+
+- В интеграционное окно добавлены корневые `docker-compose.yaml` и `.gitignore`, а общий README заменён на актуальную инструкцию запуска Problemly.
+- Корневой Compose собирает backend без изменения `backend/**`, запускает frontend на `5380`, backend на `3000`, ждёт health check API и сохраняет SQLite в volume `backend-data`.
+- Реальные `frontend/.env` и `backend/.env` не добавляются в Git. `frontend/.env` передаётся Vite как BuildKit secret только на время сборки, поэтому production URL API не остаётся в слое образа.
+- Проверки: standalone `frontend/docker compose build`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно. Корневой Compose проверяется на сервере после создания обоих env-файлов по инструкции README.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.
@@ -111,3 +118,4 @@
 
 - Выполнено: `frontend/.gitignore` исключает `node_modules/` и `dist/`.
 - Для production Compose frontend на `http://<host>:5380` backend должен получить `FRONTEND_ORIGIN` с этим origin (либо проксироваться через один origin), иначе браузер заблокирует API-запросы по CORS. Это изменение относится к backend/интеграционному окну.
+- Интеграционное окно по явному запросу: добавить корневой `docker-compose.yaml`, корневой `.gitignore` для локальных env и обновить общий README с запуском frontend и backend через `docker compose up -d --build`. Backend-исходники не изменяются.
