@@ -13,5 +13,10 @@ test('score levels follow contract thresholds', () => {
   const fields=Object.fromEntries(keys.map(k=>[k,'Заполнено']));
   assert.equal(scoreTask(fields,keys).score,100);
   assert.equal(scoreTask(fields,keys).level,'priority');
-  assert.equal(scoreTask(fields,keys.slice(0,3)).level,'working');
+  assert.equal(scoreTask(fields,keys.slice(0,2)).score,40);
+  assert.equal(scoreTask(fields,keys.slice(0,2)).level,'working');
+  assert.equal(scoreTask(fields,keys.slice(0,4)).score,70);
+  assert.equal(scoreTask(fields,keys.slice(0,4)).level,'ready');
+  assert.equal(scoreTask(fields,keys.slice(0,6)).score,90);
+  assert.equal(scoreTask(fields,keys.slice(0,6)).level,'priority');
 });
