@@ -89,8 +89,20 @@ async function route(req,res) {
   if (req.method==='PATCH'&&m) { const p=proposals.get(m[1]); if (!p) return error(res,404,'NOT_FOUND','Отклик не найден.'); if (!['pending','selected','rejected'].includes(data.status)) return error(res,400,'VALIDATION_ERROR','Недопустимый статус.'); p.status=data.status; persist(); return send(res,200,p); }
   return error(res,404,'NOT_FOUND','Маршрут не найден.');
 }
-export function createServer() {
-  return http.createServer((req,res)=>route(req,res).catch(e=>error(res,e.status||500,e.code||'INTERNAL_ERROR',e.status?e.message:'Внутренняя ошибка сервера.')));
+export function createServer({ logger = console, logRequests = process.env.REQUEST_LOGGING !== 'false' } = {}) {
+  return http.createServer((req, res) => {
+    const requestId = randomUUID();
+    const startedAt = performance.now();
+    const requestUrl = new URL(req.url, 'http://localhost');
+    res.setHeader('X-Request-Id', requestId);
+    if (logRequests) {
+      res.once('finish', () => logger.info(JSON.stringify({
+        event: 'http_request', requestId, method: req.method, path: requestUrl.pathname,
+        status: res.statusCode, durationMs: Math.round(performance.now() - startedAt),
+      })));
+    }
+    route(req, res).catch((exception) => error(res, exception.status || 500, exception.code || 'INTERNAL_ERROR', exception.status ? exception.message : 'Внутренняя ошибка сервера.'));
+  });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

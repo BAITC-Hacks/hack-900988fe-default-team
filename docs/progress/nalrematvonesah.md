@@ -185,3 +185,10 @@
 - Добавлен Docker `HEALTHCHECK` для `/api/health`, корректное закрытие HTTP-сервера и SQLite по `SIGINT`/`SIGTERM`, а также `npm run smoke` для проверки health, Swagger UI и OpenAPI у уже запущенного API.
 - Изменены: `backend/Dockerfile`, `backend/src/server.js`, `backend/scripts/smoke.js`, `backend/package.json`, `backend/README.md`.
 - Проверки: `npm test` — 40/40 passed; `SMOKE_BASE_URL=http://localhost:3391/api npm run smoke` прошла на временном сервере; Docker-образ с HEALTHCHECK собран успешно. Временная SQLite-база удалена.
+
+### 2026-09-23 — безопасные request-логи
+
+- Добавлены JSON-логи каждого HTTP-ответа: event, requestId, метод, путь без query-параметров, статус и длительность. `X-Request-Id` также возвращается в HTTP-ответе для сопоставления клиентской ошибки с серверным логом.
+- Тела запросов, ключи, черновики и query-параметры не логируются. Логи включены по умолчанию и отключаются через `REQUEST_LOGGING=false`.
+- Изменены: `backend/src/server.js`, `backend/test/api.test.js`, `backend/.env.example`, `backend/README.md`.
+- Проверки: `npm test` — 41/41 passed.
