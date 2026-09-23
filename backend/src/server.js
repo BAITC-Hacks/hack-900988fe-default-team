@@ -10,7 +10,8 @@ const send = (res, status, body) => { res.writeHead(status, { 'Content-Type':'ap
 const error = (res,status,code,message,details={}) => send(res,status,{error:{code,message,details}});
 async function body(req) { let raw=''; for await (const chunk of req) raw += chunk; if (!raw) return {}; try { return JSON.parse(raw); } catch { throw Object.assign(new Error('Некорректный JSON'),{status:400,code:'INVALID_JSON'}); } }
 function validFields(fields) { return fields && typeof fields === 'object' && !Array.isArray(fields) && Object.values(fields).every(v=>typeof v==='string'); }
-const json = value => JSON.stringify(value);
+const taskFieldKeys = new Set(['title','context','need','users','data','constraints','expectedResult','successCriteria','contact','interactionFormat','businessLink']);
+function validConfirmedFields(value) { return Array.isArray(value) && value.every(key => typeof key === 'string' && taskFieldKeys.has(key)); }
 async function route(req,res) {
   if (req.method==='OPTIONS') return send(res,204,{});
   const url=new URL(req.url,'http://localhost'), path=url.pathname, data=await body(req);
@@ -24,12 +25,15 @@ async function route(req,res) {
     if (!data.analysisId || !analyses.has(data.analysisId)) return error(res,404,'NOT_FOUND','Анализ не найден.');
     const analysis=analyses.get(data.analysisId), fields={...analysis.extractedFields,...(data.currentFields||{})};
     for (const answer of (Array.isArray(data.answers)?data.answers:[])) if (answer && analysis.questions.some(q=>q.id===answer.questionId && q.field===answer.field) && typeof answer.answer==='string') fields[answer.field]=answer.answer;
+    if (data.confirmedFields !== undefined && !validConfirmedFields(data.confirmedFields)) return error(res,400,'VALIDATION_ERROR','confirmedFields должен содержать допустимые имена полей.');
     const confirmedFields=Array.isArray(data.confirmedFields)?data.confirmedFields:[];
     return send(res,200,{fields,...scoreTask(fields,confirmedFields)});
   }
   if (req.method==='POST' && path==='/api/tasks') {
     if (!validFields(data.fields)) return error(res,400,'VALIDATION_ERROR','fields должен быть объектом строк.');
-    const id=makeId('task'), time=timestamp(), task={id,status:'draft',fields:data.fields,confirmedFields:Array.isArray(data.confirmedFields)?data.confirmedFields:[],...scoreTask(data.fields,data.confirmedFields),createdAt:time,updatedAt:time}; tasks.set(id,task); return send(res,201,task);
+    if (data.confirmedFields !== undefined && !validConfirmedFields(data.confirmedFields)) return error(res,400,'VALIDATION_ERROR','confirmedFields должен содержать допустимые имена полей.');
+    const confirmedFields=data.confirmedFields||[];
+    const id=makeId('task'), time=timestamp(), task={id,status:'draft',fields:data.fields,confirmedFields,...scoreTask(data.fields,confirmedFields),createdAt:time,updatedAt:time}; tasks.set(id,task); return send(res,201,task);
   }
   if (req.method==='GET' && path==='/api/tasks') {
     let list=[...tasks.values()].filter(t=>t.status==='published');
@@ -43,6 +47,7 @@ async function route(req,res) {
     if (req.method==='GET' && !action) return send(res,200,task);
     if (req.method==='PATCH' && !action) {
       if (!validFields(data.fields)) return error(res,400,'VALIDATION_ERROR','fields должен быть объектом строк.');
+      if (data.confirmedFields !== undefined && !validConfirmedFields(data.confirmedFields)) return error(res,400,'VALIDATION_ERROR','confirmedFields должен содержать допустимые имена полей.');
       task.fields={...task.fields,...data.fields}; task.confirmedFields=Array.isArray(data.confirmedFields)?[...new Set(data.confirmedFields)]:task.confirmedFields; Object.assign(task,scoreTask(task.fields,task.confirmedFields),{updatedAt:timestamp()}); return send(res,200,task);
     }
     if (req.method==='POST' && action==='publish') { task.status='published'; task.updatedAt=timestamp(); return send(res,200,task); }

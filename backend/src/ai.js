@@ -4,6 +4,7 @@ const emptyFields = () => Object.fromEntries(fieldNames.map(key => [key, '']));
 export function fallbackAnalysis(draft) {
   const text = draft.trim();
   const fields = emptyFields();
+  fields.title = text;
   fields.context = text;
   fields.need = text;
   const missingFields = ['users','data','successCriteria'];
