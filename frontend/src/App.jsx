@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { calculateScore, mockAdapter } from './api/mockAdapter';
+import { apiAdapter, apiMode } from './api/adapter';
+import { calculateScore } from './api/mockAdapter';
 
 const initialDraft = 'Хотим сократить очереди в корпоративной столовой с помощью AI.';
 const labels = { draft: 'Черновик', working: 'Рабочая', ready: 'Готовая', priority: 'Приоритетная' };
@@ -28,12 +29,12 @@ export default function App() {
 
   useEffect(() => {
     if (page !== 'catalog') return;
-    request(async () => setCatalog(await mockAdapter.listTasks(filters)));
+    request(async () => setCatalog(await apiAdapter.listTasks(filters)));
   }, [page, filters]);
 
   async function request(action) {
     setLoading(true); setError(''); setNotice('');
-    try { await action(); } catch { setError('Не удалось выполнить запрос. Проверьте соединение и повторите попытку.'); } finally { setLoading(false); }
+    try { await action(); } catch (requestError) { setError(requestError.message || 'Не удалось выполнить запрос. Проверьте соединение и повторите попытку.'); } finally { setLoading(false); }
   }
   function updateCard(key, value) {
     setCard((current) => {
@@ -41,24 +42,24 @@ export default function App() {
       return { ...current, fields, ...calculateScore(fields) };
     });
   }
-  async function analyze() { await request(async () => setAnalysis(await mockAdapter.analyze(draft))); }
-  async function compose() { await request(async () => setCard(await mockAdapter.compose({ draft, answers: analysis.questions.map((q) => ({ questionId: q.id, field: q.field, answer: answers[q.id] || '' })), currentFields: analysis.extractedFields }))); }
-  async function saveDraft() { await request(async () => { const saved = await mockAdapter.createTask({ fields: card.fields, confirmedFields: editable.filter((key) => card.fields[key]?.trim()) }); setTask(saved); setCard({ ...card, ...saved }); setNotice('Карточка сохранена как черновик.'); }); }
-  async function publish() { await request(async () => { const published = await mockAdapter.publish(task || { ...card, id: 'task_demo' }); setTask(published); setNotice('Задача опубликована в каталоге.'); }); }
-  async function sendProposal(event) { event.preventDefault(); await request(async () => { setProposal(await mockAdapter.createProposal({ taskId: task.id, ...proposalForm })); setNotice('Отклик команды отправлен бизнесу.'); }); }
-  async function choose(status) { await request(async () => { setProposal(await mockAdapter.setProposalStatus(proposal, status)); setNotice(status === 'selected' ? 'Команда выбрана вручную.' : 'Отклик отклонён.'); }); }
+  async function analyze() { await request(async () => setAnalysis(await apiAdapter.analyze(draft))); }
+  async function compose() { await request(async () => setCard(await apiAdapter.compose({ analysisId: analysis.analysisId, draft, answers: analysis.questions.map((q) => ({ questionId: q.id, field: q.field, answer: answers[q.id] || '' })), currentFields: analysis.extractedFields }))); }
+  async function saveDraft() { await request(async () => { const confirmedFields = editable.filter((key) => card.fields[key]?.trim()); const saved = task ? await apiAdapter.updateTask(task.id, { fields: card.fields, confirmedFields }) : await apiAdapter.createTask({ fields: card.fields, confirmedFields }); setTask(saved); setCard({ ...card, ...saved }); setNotice('Карточка сохранена как черновик.'); }); }
+  async function publish() { await request(async () => { const published = await apiAdapter.publish(task); setTask(published); setNotice('Задача опубликована в каталоге.'); }); }
+  async function sendProposal(event) { event.preventDefault(); await request(async () => { setProposal(await apiAdapter.createProposal({ taskId: task.id, ...proposalForm })); setNotice('Отклик команды отправлен бизнесу.'); }); }
+  async function choose(status) { await request(async () => { setProposal(await apiAdapter.setProposalStatus(proposal, status)); setNotice(status === 'selected' ? 'Команда выбрана вручную.' : 'Отклик отклонён.'); }); }
   async function openTask(taskId) {
     await request(async () => {
-      const detail = await mockAdapter.getTask(taskId);
+      const detail = await apiAdapter.getTask(taskId);
       setSelectedTask(detail);
-      setProposals(await mockAdapter.getProposals(taskId));
+      setProposals(await apiAdapter.getProposals(taskId));
       setPage('detail');
     });
   }
   async function sendDetailProposal(event) {
     event.preventDefault();
     await request(async () => {
-      const created = await mockAdapter.createProposal({ taskId: selectedTask.id, ...proposalForm });
+      const created = await apiAdapter.createProposal({ taskId: selectedTask.id, ...proposalForm });
       setProposals((current) => [created, ...current]);
       setProposalForm({ teamId: 'team_1', solutionIdea: '', plan: '', estimatedTime: '', prototypeUrl: '' });
       setNotice('Отклик команды отправлен бизнесу.');
@@ -66,7 +67,7 @@ export default function App() {
   }
   async function setDetailProposalStatus(item, status) {
     await request(async () => {
-      const updated = await mockAdapter.setProposalStatus(item, status);
+      const updated = await apiAdapter.setProposalStatus(item, status);
       setProposals((current) => current.map((proposalItem) => proposalItem.id === updated.id ? updated : proposalItem));
       setNotice(status === 'selected' ? 'Команда выбрана вручную.' : 'Отклик отклонён.');
     });
@@ -77,7 +78,7 @@ export default function App() {
 
   return <main>
     <header><div><span className="brand">HackAlem AI</span><span className="subtitle">каталог бизнес-задач для студенческих команд</span></div><nav className="navigation" aria-label="Основная навигация"><button onClick={() => setPage('catalog')}>Каталог задач</button>{role === 'business' && <button className="active" onClick={() => setPage('constructor')}>Создать задачу</button>}</nav><div className="roles"><button className={role === 'business' ? 'active' : ''} onClick={() => { setRole('business'); setPage('constructor'); }}>Бизнес</button><button className={role === 'team' ? 'active' : ''} onClick={() => { setRole('team'); setPage('catalog'); }}>Команда</button></div></header>
-    <section className="hero"><p className="eyebrow">{role === 'business' ? 'AI-конструктор задачи' : 'Каталог возможностей'}</p><h1>{role === 'business' ? 'Превратите идею в понятную задачу' : 'Найдите задачу для вашей команды'}</h1><p>AI помогает собрать недостающий контекст, а решение о публикации и выборе команды остаётся за человеком.</p></section>
+    <section className="hero"><p className="eyebrow">{role === 'business' ? 'AI-конструктор задачи' : 'Каталог возможностей'} · {apiMode === 'api' ? 'API подключён' : 'демо-данные'}</p><h1>{role === 'business' ? 'Превратите идею в понятную задачу' : 'Найдите задачу для вашей команды'}</h1><p>AI помогает собрать недостающий контекст, а решение о публикации и выборе команды остаётся за человеком.</p></section>
     {error && <p className="message error">{error}</p>}{notice && <p className="message">{notice}</p>}
     {role === 'business' && <section className="grid">
       <article className="panel"><h2>1. Черновик</h2><label>Опишите бизнес-задачу<textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows="5" /></label><button disabled={loading || !draft.trim()} onClick={analyze}>{loading ? 'Анализируем…' : 'Найти пробелы'}</button></article>

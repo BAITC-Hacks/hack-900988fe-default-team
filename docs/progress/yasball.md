@@ -58,13 +58,22 @@
 - В `frontend/README.md` добавлены команды самостоятельной сборки и запуска образа. Общий `docker-compose.yaml` не изменялся.
 - Проверка: `docker build -t hackalem-frontend:local ./frontend` — успешно.
 
+### 2026-09-23 — переключаемый API-адаптер
+
+- Добавлен `httpAdapter`, реализующий все frontend-операции из `API_CONTRACT.md`: анализ/сборка черновика, создание и обновление задачи, публикация, каталог, детализация, отклики и ручная смена статуса.
+- `adapter.js` переключает приложение между HTTP API и существующим mock adapter одной переменной `VITE_API_BASE_URL`; пустое значение безопасно оставляет демо-режим.
+- Редактор теперь повторно сохраняет существующий черновик через `PATCH /tasks/:taskId`; текст контрактной ошибки API показывается пользователю.
+- Обновлены безопасный `.env.example`, локальный README и тесты HTTP-адаптера.
+- Изменённые файлы: `frontend/src/App.jsx`, `frontend/src/api/adapter.js`, `frontend/src/api/httpAdapter.js`, `frontend/src/api/httpAdapter.test.js`, `frontend/.env.example`, `frontend/README.md`, `docs/progress/yasball.md`.
+- Проверки: `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно; Vite dev-сервер отвечает на `http://127.0.0.1:5173` (HTTP 200).
+
 ## Следующий шаг
 
-После готовности backend переключить adapter на `VITE_API_BASE_URL` и провести интеграционный сценарий.
+После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.
 
 ## Блокеры
 
-Реальный backend API пока не подключён: текущий сквозной сценарий использует mock adapter. Для API-режима нужен согласованный HTTP adapter после готовности endpoints.
+Для API-режима нужен доступный backend с CORS для frontend origin и согласованные endpoint'ы по контракту; HTTP adapter уже готов.
 
 ## Предложения для интеграции
 
