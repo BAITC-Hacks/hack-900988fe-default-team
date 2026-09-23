@@ -2,26 +2,16 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile_inline: |
-        FROM node:22-alpine
-        WORKDIR /app
-        COPY package.json package-lock.json ./
-        RUN npm ci --omit=dev
-        COPY src ./src
-        EXPOSE 3000
-        CMD ["npm", "start"]
+      dockerfile: Dockerfile
     image: problemly-backend:local
     env_file:
       - ./backend/.env
     ports:
-      - "3000:3000"
+      - "3388:3388"
+    environment:
+      PORT: "3388"
     volumes:
       - backend-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
   frontend:

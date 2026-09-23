@@ -106,6 +106,12 @@
 - Реальные `frontend/.env` и `backend/.env` не добавляются в Git. `frontend/.env` передаётся Vite как BuildKit secret только на время сборки, поэтому production URL API не остаётся в слое образа.
 - Проверки: standalone `frontend/docker compose build`, `npm run lint`, `npm run test` (6 тестов), `npm run build` — успешно. Корневой Compose проверяется на сервере после создания обоих env-файлов по инструкции README.
 
+### 2026-09-23 — использование Dockerfile backend
+
+- По явному запросу корневой Compose переключён с inline Dockerfile на существующий `backend/Dockerfile`; файлы `backend/**` не изменялись.
+- Использован порт Dockerfile backend `3388`: Compose и общая инструкция reverse proxy обновлены соответственно. Compose принудительно задаёт `PORT=3388`, чтобы не зависеть от устаревшего значения в локальном env-файле.
+- Проверки: `docker build -t problemly-backend:local ./backend` — успешно; у образа подтверждён встроенный health check `GET /api/health` на `3388`.
+
 ## Следующий шаг
 
 После готовности backend задать `VITE_API_BASE_URL` и провести сквозной сценарий с реальными endpoint'ами.

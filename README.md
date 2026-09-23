@@ -14,7 +14,7 @@ Problemly помогает бизнесу превратить краткое о
 
 - `frontend/` — React/Vite, в production раздаётся Nginx;
 - `backend/` — Node.js API и SQLite;
-- `docker-compose.yaml` — единый production-подобный запуск. Frontend доступен на хост-порту `5380`, backend — на `3000`.
+- `docker-compose.yaml` — единый production-подобный запуск. Frontend доступен на хост-порту `5380`, backend — на `3388`.
 
 ## Запуск на сервере
 
@@ -34,7 +34,7 @@ VITE_API_BASE_URL=https://haa-api.defaul7.net
 В `backend/.env` минимум проверьте следующие значения:
 
 ```env
-PORT=3000
+PORT=3388
 DATABASE_URL=file:/app/data/problemly.db
 FRONTEND_ORIGIN=https://haa.defaul7.net
 API_BASE_URL=https://haa-api.defaul7.net/api
@@ -68,7 +68,7 @@ docker compose down
 Направьте TLS reverse proxy на тот же сервер:
 
 - `https://haa.defaul7.net` → `http://127.0.0.1:5380`;
-- `https://haa-api.defaul7.net` → `http://127.0.0.1:3000`.
+- `https://haa-api.defaul7.net` → `http://127.0.0.1:3388`.
 
 После проксирования frontend должен открываться по `https://haa.defaul7.net`, а health check API — по `https://haa-api.defaul7.net/api/health`.
 
